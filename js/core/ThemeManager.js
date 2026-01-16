@@ -5,7 +5,7 @@
 class ThemeManager {
     constructor() {
         this.loadTheme();
-        this.createToggleButton();
+        // Toggle button moved to admin panel; admin can call toggleTheme()
     }
     
     loadTheme() {

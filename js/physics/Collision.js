@@ -11,7 +11,8 @@ const Collision = {
         const dx = ball.x - peg.x;
         const dy = ball.y - peg.y;
         const distSq = dx * dx + dy * dy;
-        const minDist = ball.radius + peg.radius;
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+        const minDist = bRadius + peg.radius;
         
         if (distSq < minDist * minDist) {
             const dist = Math.sqrt(distSq);
@@ -62,6 +63,16 @@ const Collision = {
         
         // Mark peg as recently hit for visual feedback
         collision.peg.lastHitTime = performance.now();
+
+        // Play peg hit sound if available (use ball's assigned variant)
+        try {
+            if (window.audioManager && typeof window.audioManager.playPegHit === 'function') {
+                const variant = (typeof ball.soundVariant === 'number') ? ball.soundVariant : 0;
+                window.audioManager.playPegHit(variant);
+            }
+        } catch (e) {
+            // ignore audio errors
+        }
     },
     
     /**
@@ -71,34 +82,51 @@ const Collision = {
     ballToWalls(ball, board, slotDividers) {
         const physics = CONFIG.PHYSICS;
         let collided = false;
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+        const EPS = 0.5; // small separation to avoid sticking
         
         // Left wall
-        if (ball.x - ball.radius < board.innerLeft) {
-            ball.x = board.innerLeft + ball.radius;
+        if (ball.x - bRadius < board.innerLeft) {
+            ball.x = board.innerLeft + bRadius + EPS;
             ball.vx = Math.abs(ball.vx) * physics.wallRestitution;
             collided = true;
+            try {
+                if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                    window.audioManager.playWallHit();
+                }
+            } catch (e) {}
         }
         
         // Right wall
-        if (ball.x + ball.radius > board.innerRight) {
-            ball.x = board.innerRight - ball.radius;
+        if (ball.x + bRadius > board.innerRight) {
+            ball.x = board.innerRight - bRadius - EPS;
             ball.vx = -Math.abs(ball.vx) * physics.wallRestitution;
             collided = true;
+            try {
+                if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                    window.audioManager.playWallHit();
+                }
+            } catch (e) {}
         }
 
         // Chevron bump-outs
         if (board.chevronSegments &&
-            ball.y + ball.radius > board.innerTop &&
-            ball.y - ball.radius < board.innerBottom) {
+            ball.y + bRadius > board.innerTop &&
+            ball.y - bRadius < board.innerBottom) {
             for (const segment of board.chevronSegments) {
                 if (this.ballToChevronSegment(ball, segment)) {
                     collided = true;
+                    try {
+                        if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                            window.audioManager.playWallHit();
+                        }
+                    } catch (e) {}
                 }
             }
         }
         
         // Slot dividers - these create the funnel effect
-        if (slotDividers && ball.y + ball.radius > CONFIG.SLOTS.funnelStartY) {
+        if (slotDividers && ball.y + bRadius > CONFIG.SLOTS.funnelStartY) {
             for (const divider of slotDividers) {
                 if (this.ballToDivider(ball, divider)) {
                     collided = true;
@@ -130,7 +158,8 @@ const Collision = {
         let dx = ball.x - closestX;
         let dy = ball.y - closestY;
         let distSq = dx * dx + dy * dy;
-        const radiusSq = ball.radius * ball.radius;
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+        const radiusSq = bRadius * bRadius;
         if (distSq >= radiusSq) {
             return false;
         }
@@ -146,9 +175,11 @@ const Collision = {
             nx = dx / dist;
             ny = dy / dist;
         }
-        const penetration = ball.radius - dist;
-        ball.x += nx * penetration;
-        ball.y += ny * penetration;
+        const penetration = bRadius - dist;
+        // push out by penetration plus a tiny epsilon to avoid re-collision
+        const OUT_EPS = 0.5;
+        ball.x += nx * (penetration + OUT_EPS);
+        ball.y += ny * (penetration + OUT_EPS);
 
         const velocity = new Vector(ball.vx, ball.vy);
         const normalVector = new Vector(nx, ny);
@@ -166,7 +197,8 @@ const Collision = {
         const physics = CONFIG.PHYSICS;
         
         // Check if ball is in the vertical range of the divider
-        if (ball.y + ball.radius < divider.y || ball.y - ball.radius > divider.y + divider.height) {
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+        if (ball.y + bRadius < divider.y || ball.y - bRadius > divider.y + divider.height) {
             return false;
         }
         
@@ -174,25 +206,38 @@ const Collision = {
         const dividerRight = divider.x + divider.width / 2;
         
         // Check left side of divider
-        if (ball.x + ball.radius > dividerLeft && ball.x < divider.x) {
-            const penetration = ball.x + ball.radius - dividerLeft;
-            if (penetration > 0 && penetration < ball.radius) {
-                ball.x = dividerLeft - ball.radius;
+        if (ball.x + bRadius > dividerLeft && ball.x < divider.x) {
+            const penetration = ball.x + bRadius - dividerLeft;
+            if (penetration > 0) {
+                // push ball to the left of the divider with small EPS to avoid sticking
+                const OUT_EPS = 0.5;
+                ball.x = dividerLeft - bRadius - OUT_EPS;
                 ball.vx = -Math.abs(ball.vx) * physics.wallRestitution;
                 // Add slight randomness
                 ball.vx += Utils.randomVariance(0, 0.3);
+                try {
+                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                        window.audioManager.playWallHit();
+                    }
+                } catch (e) {}
                 return true;
             }
         }
         
         // Check right side of divider
-        if (ball.x - ball.radius < dividerRight && ball.x > divider.x) {
-            const penetration = dividerRight - (ball.x - ball.radius);
-            if (penetration > 0 && penetration < ball.radius) {
-                ball.x = dividerRight + ball.radius;
+        if (ball.x - bRadius < dividerRight && ball.x > divider.x) {
+            const penetration = dividerRight - (ball.x - bRadius);
+            if (penetration > 0) {
+                const OUT_EPS = 0.5;
+                ball.x = dividerRight + bRadius + OUT_EPS;
                 ball.vx = Math.abs(ball.vx) * physics.wallRestitution;
                 // Add slight randomness
                 ball.vx += Utils.randomVariance(0, 0.3);
+                try {
+                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                        window.audioManager.playWallHit();
+                    }
+                } catch (e) {}
                 return true;
             }
         }
@@ -209,8 +254,9 @@ const Collision = {
         const slotBottom = slotConfig.y + slotConfig.height - 10;
         
         // Keep ball from falling through bottom
-        if (ball.y + ball.radius > slotBottom) {
-            ball.y = slotBottom - ball.radius;
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+        if (ball.y + bRadius > slotBottom) {
+            ball.y = slotBottom - bRadius;
             
             // Small bounce if coming in fast, otherwise just stop
             if (Math.abs(ball.vy) > 2) {
@@ -224,9 +270,9 @@ const Collision = {
         }
         
         // Ball has settled when it's at the bottom and barely moving
-        const isSettled = ball.y + ball.radius >= slotBottom - 2 && 
-                          Math.abs(ball.vy) < 1.5 && 
-                          Math.abs(ball.vx) < 1;
+        const isSettled = ball.y + bRadius >= slotBottom - 2 && 
+                  Math.abs(ball.vy) < 1.5 && 
+                  Math.abs(ball.vx) < 1;
         
         if (isSettled) {
             // Find which slot the ball is in

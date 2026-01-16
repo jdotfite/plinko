@@ -11,7 +11,71 @@
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+        <button id="admin-gear" aria-label="Open settings" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.remove('hidden');p.classList.add('open');o.classList.remove('hidden');})()">⚙</button>
+        <div id="round-counter" aria-live="polite">Round 1 — 0 / 5</div>
     </div>
+    <!-- Admin slide-in panel -->
+    <div id="admin-overlay" class="hidden" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');o.classList.add('hidden');})()"></div>
+    <aside id="admin-panel" class="hidden" aria-hidden="true">
+        <header>
+            <h3>Admin Settings</h3>
+            <div class="header-actions">
+                <button id="admin-reset" aria-label="Reset settings">⟳</button>
+                <button id="admin-close" aria-label="Close" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');o.classList.add('hidden');})()">✕</button>
+            </div>
+        </header>
+        <section id="admin-controls">
+            <div class="control-row">
+                <div class="control-label">Sound</div>
+                <label class="switch">
+                    <input type="checkbox" id="audio-toggle">
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">Volume</div>
+                <input id="audio-volume" type="range" min="0" max="1" step="0.01" value="1">
+                <div id="audio-volume-value" class="value-badge">100%</div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">Coins per click</div>
+                <input id="burst-count-range" type="range" min="1" max="10" value="1">
+                <div id="burst-count-value" class="value-badge">1</div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">Buckets</div>
+                <input id="slot-count-range" type="range" min="3" max="11" step="2" value="5">
+                <div id="slot-count-value" class="value-badge">5</div>
+            </div>
+
+            <div id="slot-labels" class="slot-labels">
+                <!-- Label inputs generated dynamically here -->
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">Theme</div>
+                <select id="theme-select">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </div>
+        </section>
+    </aside>
+    <!-- Round modal -->
+    <div id="round-modal" class="round-modal hidden" role="dialog" aria-modal="true">
+        <div class="round-modal-content">
+            <div id="round-modal-text">Round info</div>
+            <div class="round-modal-actions">
+                <button id="round-modal-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confetti container -->
+    <div id="confetti-container" aria-hidden="true"></div>
     
     <!-- Load scripts in order -->
     <script src="js/config.js?v=18"></script>
@@ -26,6 +90,8 @@
     <script src="js/core/Renderer.js?v=18"></script>
     <script src="js/core/InputHandler.js?v=18"></script>
     <script src="js/core/Game.js?v=18"></script>
+    <script src="js/sound.js?v=18"></script>
+    <script src="js/admin.js?v=18"></script>
     <script src="js/main.js?v=18"></script>
 </body>
 </html>

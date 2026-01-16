@@ -100,6 +100,11 @@ const CONFIG = {
         radius: 32,
         dropZoneMinY: 60,
         dropZoneMaxY: 180
+        ,
+        // Burst drop settings (number of tokens dropped per user drop and delay between them)
+        // Default to a single coin per click
+        burstCount: 1,
+        burstDelayMs: 0
     },
     
     // Prize slots / buckets

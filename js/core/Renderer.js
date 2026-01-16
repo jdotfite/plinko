@@ -120,6 +120,13 @@ class Renderer {
         // Draw static elements from offscreen canvas
         ctx.drawImage(this.staticCanvas, 0, 0);
         
+        // Render winning slot highlight (draw BEFORE dynamic balls so coins remain visible)
+        for (const slot of game.slots) {
+            if (slot.isWinner) {
+                slot.render(ctx, scale);
+            }
+        }
+
         // Render pegs (for hit animation - need to redraw)
         for (const peg of game.pegs) {
             const timeSinceHit = performance.now() - peg.lastHitTime;
@@ -133,19 +140,19 @@ class Renderer {
             this.renderDropIndicator(game.aimX, scale);
         }
         
-        // Render ball
-        if (game.ball && (game.state === CONFIG.STATES.AIMING || 
-                          game.state === CONFIG.STATES.DROPPING ||
-                          game.state === CONFIG.STATES.SCORING)) {
-            game.ball.render(ctx, scale);
+        // Render aim preview when aiming
+        if (game.state === CONFIG.STATES.AIMING && game.aimBall) {
+            game.aimBall.render(ctx, scale);
         }
-        
-        // Render winning slot highlight
-        for (const slot of game.slots) {
-            if (slot.isWinner) {
-                slot.render(ctx, scale);
+
+        // Render all active/landed balls
+        if (game.balls && game.balls.length > 0) {
+            for (const b of game.balls) {
+                b.render(ctx, scale);
             }
         }
+        
+        
 
         // Render score
         this.renderScore(game.score, scale);

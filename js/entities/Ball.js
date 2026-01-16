@@ -9,6 +9,9 @@ class Ball {
         this.vx = 0;
         this.vy = 0;
         this.radius = CONFIG.BALL.radius;
+        // Collision radius should include the white border drawn around the token
+        // The renderer draws a border of ~4 units, so use that as hit padding.
+        this.hitRadius = this.radius + 4;
         this.active = false;
         this.landed = false;
         this.landedSlot = null;
@@ -25,6 +28,7 @@ class Ball {
         this.active = false;
         this.landed = false;
         this.landedSlot = null;
+        this.hitRadius = this.radius + 4;
     }
     
     /**
