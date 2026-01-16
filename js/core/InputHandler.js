@@ -99,11 +99,13 @@ class InputHandler {
     isInDropZone(x, y) {
         const board = CONFIG.BOARD;
         const ball = CONFIG.BALL;
-        
-        return y >= ball.dropZoneMinY && 
-               y <= ball.dropZoneMaxY + 100 &&
-               x >= board.marginX && 
-               x <= board.marginX + board.width;
+         // Relax drop-zone vertical sensitivity so clicks/taps slightly below
+         // the visual drop area still count as drops on different screen sizes.
+         const extraReach = 260; // pixels of forgiving region beneath configured drop zone
+         return y >= ball.dropZoneMinY &&
+             y <= (ball.dropZoneMaxY + extraReach) &&
+             x >= board.marginX &&
+             x <= board.marginX + board.width;
     }
     
     /**

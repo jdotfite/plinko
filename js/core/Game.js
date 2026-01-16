@@ -44,6 +44,14 @@ class Game {
     }
 
     /**
+     * Start the game loop
+     */
+    start() {
+        this.lastTime = performance.now();
+        requestAnimationFrame((time) => this.gameLoop(time));
+    }
+
+    /**
      * Replace the current slots with a new count and re-render static elements.
      */
     setSlotCount(count) {
@@ -61,38 +69,9 @@ class Game {
 
             this.renderer.staticDirty = true;
             this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
-        } else {
-            console.warn('createSlotsWithCount not available');
         }
     }
 
-    /**
-     * Apply array of labels to current slots (will set slot.label and re-render static canvas)
-     */
-    setSlotLabels(labels) {
-        if (!Array.isArray(labels) || !this.slots) return;
-        for (let i = 0; i < this.slots.length; i++) {
-            this.slots[i].label = labels[i] || '';
-        }
-        this.renderer.staticDirty = true;
-        this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
-        // Force an immediate dynamic redraw so labels appear right away
-        if (typeof this.renderer.render === 'function') {
-            this.renderer.render(this);
-        }
-    }
-    
-    /**
-     * Start the game loop
-     */
-    start() {
-        this.lastTime = performance.now();
-        requestAnimationFrame((time) => this.gameLoop(time));
-    }
-    
-    /**
-     * Main game loop
-     */
     gameLoop(currentTime) {
         const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
@@ -312,17 +291,36 @@ class Game {
      */
     resetRound() {
         this.state = CONFIG.STATES.IDLE;
+        // Clear dynamic entities and input state
         this.balls = [];
         this.aimBall = null;
         this.aimX = null;
+        this.allowDropping = true;
+        if (this.inputHandler && typeof this.inputHandler === 'object') {
+            try { this.inputHandler.isPressed = false; } catch (e) {}
+            try { this.inputHandler.currentX = null; this.inputHandler.currentY = null; } catch (e) {}
+        }
+
+        // Reset round counters (defensive)
+        this.dropsThisRound = 0;
+        this.landedThisRound = 0;
 
         // Reset slots
         for (const slot of this.slots) {
             slot.reset();
         }
 
-        // Re-render static elements
+        // Clear any lingering confetti/pulse DOM elements
+        try {
+            const container = document.getElementById('confetti-container');
+            if (container) {
+                while (container.firstChild) container.removeChild(container.firstChild);
+            }
+        } catch (e) {}
+
+        // Re-render static elements and request an immediate dynamic render to ensure visuals match state
         this.renderer.staticDirty = true;
         this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
+        try { if (typeof this.renderer.render === 'function') this.renderer.render(this); } catch(e) {}
     }
 }

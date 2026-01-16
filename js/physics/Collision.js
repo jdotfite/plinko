@@ -61,14 +61,37 @@ const Collision = {
         ball.vx = newVx;
         ball.vy = newVy;
         
-        // Mark peg as recently hit for visual feedback
-        collision.peg.lastHitTime = performance.now();
+        // Mark peg as recently hit for visual feedback and debounced audio
+        const now = performance.now();
+        const lastHit = collision.peg.lastHitTime || 0;
+        collision.peg.lastHitTime = now;
 
-        // Play peg hit sound if available (use ball's assigned variant)
+        // Play peg hit sound if available — debounce to avoid rapid repeats when
+        // a ball is very slow/sticking to a peg. Also prefer to play when ball
+        // has meaningful kinetic energy.
         try {
             if (window.audioManager && typeof window.audioManager.playPegHit === 'function') {
                 const variant = (typeof ball.soundVariant === 'number') ? ball.soundVariant : 0;
-                window.audioManager.playPegHit(variant);
+                const cooldownMs = 160; // short debounce window
+                const speed = Math.hypot(ball.vx, ball.vy);
+                // Only play if last hit was sufficiently long ago OR ball has non-trivial speed
+                if ((now - lastHit) > cooldownMs && (speed > 0.4 || (now - lastHit) > 600)) {
+                    // Slight pitch/pan variation based on peg position to add realism:
+                    // deeper pegs -> slightly lower pitch; lateral position -> pan.
+                    try {
+                        const pegY = (collision.peg && typeof collision.peg.y === 'number') ? collision.peg.y : 0;
+                        const pegX = (collision.peg && typeof collision.peg.x === 'number') ? collision.peg.x : 0;
+                        const boardH = (CONFIG.BOARD && CONFIG.BOARD.height) ? CONFIG.BOARD.height : CONFIG.TARGET_HEIGHT;
+                        const boardW = (CONFIG.BOARD && CONFIG.BOARD.width) ? CONFIG.BOARD.width : CONFIG.TARGET_WIDTH;
+                        const normY = Math.max(0, Math.min(1, pegY / boardH));
+                        const normX = ((pegX - boardW * 0.5) / (boardW * 0.5));
+                        const pitchFactor = 1 - (normY * 0.18); // up to ~-18% at bottom
+                        const pan = Math.max(-0.6, Math.min(0.6, normX * 0.45));
+                        window.audioManager.playPegHit({ variant, pitch: pitchFactor, pan });
+                    } catch (e) {
+                        window.audioManager.playPegHit(variant);
+                    }
+                }
             }
         } catch (e) {
             // ignore audio errors

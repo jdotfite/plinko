@@ -14,6 +14,7 @@
     const slotRange = $('slot-count-range');
     const slotValue = $('slot-count-value');
     const themeSelect = $('theme-select');
+    const trailSelect = $('trail-select');
     const STORAGE_KEY = 'plinko_settings_v1';
     const resetBtn = $('admin-reset');
 
@@ -184,7 +185,8 @@
                 burstCount: CONFIG.BALL.burstCount || (burstRange ? parseInt(burstRange.value) : 1),
                 slotCount: slotRange ? parseInt(slotRange.value) : null,
                 slotLabels: slotLabels || [],
-                theme: (THEME_STATE && THEME_STATE.current) ? THEME_STATE.current : null
+                    theme: (THEME_STATE && THEME_STATE.current) ? THEME_STATE.current : null,
+                    trailEffect: (window.currentTrailType) ? window.currentTrailType : null
             };
             const json = JSON.stringify(obj);
             localStorage.setItem(STORAGE_KEY, json);
@@ -234,6 +236,10 @@
                 if (window.themeManager && typeof window.themeManager.applyTheme === 'function') {
                     window.themeManager.applyTheme();
                 }
+            }
+            if (obj.trailEffect && trailSelect) {
+                trailSelect.value = obj.trailEffect;
+                window.currentTrailType = obj.trailEffect;
             }
 
             const finalCount = (slotRange) ? parseInt(slotRange.value) : null;
@@ -372,6 +378,20 @@
                     window.themeManager.updateButtonIcon();
                 }
             }
+        });
+    }
+
+    // Trail selector
+    if (trailSelect) {
+        // Set default if not present
+        const defaultTrail = 'off';
+        trailSelect.value = window.currentTrailType || defaultTrail;
+        window.currentTrailType = trailSelect.value;
+        trailSelect.addEventListener('change', (e) => {
+            const t = e.target.value;
+            window.currentTrailType = t;
+            // persist choice
+            saveSettings();
         });
     }
 

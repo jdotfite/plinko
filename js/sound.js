@@ -49,7 +49,7 @@ class SoundManager {
         window.addEventListener('click', resume, { once: true });
     }
 
-    playPegHit() {
+    playPegHit(arg) {
         if (window.audioMuted) return;
         try {
             if (!this.ctx) {
@@ -71,6 +71,17 @@ class SoundManager {
 
             const now = this.ctx.currentTime;
 
+            // parse args: allow either a numeric variant or an options object
+            let variant = 0;
+            let pitchFactor = 1.0;
+            let panOverride = null;
+            if (typeof arg === 'number') variant = arg;
+            else if (arg && typeof arg === 'object') {
+                if (typeof arg.variant === 'number') variant = arg.variant;
+                if (typeof arg.pitch === 'number') pitchFactor = arg.pitch;
+                if (typeof arg.pan === 'number') panOverride = arg.pan;
+            }
+
             // Short burst of filtered noise for metallic body
             const noiseDur = 0.14;
             const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * noiseDur), this.ctx.sampleRate);
@@ -89,7 +100,7 @@ class SoundManager {
             band.Q.value = 8 + Math.random() * 6;
 
             // narrow stereo pan for peg hits
-            const pan = (Math.random() * 2 - 1) * 0.15;
+            const pan = (panOverride !== null) ? panOverride : (Math.random() * 2 - 1) * 0.15;
             const panner = this.ctx.createStereoPanner();
             panner.pan.setValueAtTime(pan, this.ctx.currentTime);
 
@@ -109,7 +120,7 @@ class SoundManager {
             // Add a short pitched metallic blip to add tonal 'ring'
             const osc = this.ctx.createOscillator();
             osc.type = 'triangle';
-            const baseFreq = 900 + Math.random() * 600; // body pitch
+            const baseFreq = (900 + Math.random() * 600) * pitchFactor; // body pitch adjusted by pitchFactor
             osc.frequency.setValueAtTime(baseFreq * (1 + (Math.random() - 0.5) * 0.08), now);
 
             // Gentle downward pitch envelope for realism

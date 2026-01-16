@@ -135,8 +135,8 @@ class Renderer {
             }
         }
         
-        // Render drop zone indicator when aiming
-        if (game.state === CONFIG.STATES.AIMING && game.aimX !== null) {
+        // Render drop zone indicator when aiming and a preview ball exists
+        if (game.state === CONFIG.STATES.AIMING && game.aimBall && game.aimX !== null) {
             this.renderDropIndicator(game.aimX, scale);
         }
         
@@ -144,6 +144,16 @@ class Renderer {
         if (game.state === CONFIG.STATES.AIMING && game.aimBall) {
             game.aimBall.render(ctx, scale);
         }
+
+        // Update and render particle system (flakes/sparks) behind balls so particles sit under tokens
+        try {
+            if (window.particleSystem && typeof window.particleSystem.update === 'function') {
+                window.particleSystem.update();
+            }
+            if (window.particleSystem && typeof window.particleSystem.render === 'function') {
+                window.particleSystem.render(ctx, scale);
+            }
+        } catch (e) {}
 
         // Render all active/landed balls
         if (game.balls && game.balls.length > 0) {
@@ -162,25 +172,8 @@ class Renderer {
      * Render drop position indicator
      */
     renderDropIndicator(x, scale) {
-        const ctx = this.ctx;
-        const indicatorY = CONFIG.BALL.dropZoneMaxY * scale;
-        const ballRadius = CONFIG.BALL.radius * scale;
-        
-        // Vertical line
-        ctx.beginPath();
-        ctx.moveTo(x * scale, indicatorY);
-        ctx.lineTo(x * scale, CONFIG.BOARD.marginTop * scale);
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.lineWidth = 2 * scale;
-        ctx.setLineDash([5 * scale, 5 * scale]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        // Drop zone circle
-        ctx.beginPath();
-        ctx.arc(x * scale, indicatorY - ballRadius - 10 * scale, 5 * scale, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fill();
+        // Drop indicator intentionally removed — left as no-op to avoid showing over existing tokens.
+        return;
     }
     
     /**
