@@ -260,17 +260,45 @@
     // to the live game's slot count (clamped to allowed values).
     (function syncSlotsOnce(){
         if (!slotRange) return;
+        // Check localStorage for a saved slotCount preference
+        let savedCount = null;
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed.slotCount === 'number') {
+                    savedCount = (parsed.slotCount === 3 || parsed.slotCount === 5) ? parsed.slotCount : null;
+                }
+            }
+        } catch (e) { savedCount = null; }
+
         let tries = 0;
         const id = setInterval(() => {
             tries++;
             if (window.game && Array.isArray(window.game.slots)) {
-                const n = window.game.slots.length;
-                const val = (n === 3) ? 3 : 5;
-                slotRange.value = String(val);
-                if (slotValue) slotValue.textContent = String(val);
-                try { renderSlotLabelInputs(val); } catch (e) {}
+                // If user previously saved a preference, apply it to the live game
+                if (savedCount) {
+                    try {
+                        if (typeof window.game.setSlotCount === 'function') {
+                            window.game.setSlotCount(savedCount);
+                        }
+                        slotRange.value = String(savedCount);
+                        if (slotValue) slotValue.textContent = String(savedCount);
+                        renderSlotLabelInputs(savedCount);
+                    } catch (e) {
+                        console.warn('[admin] failed to apply saved slotCount to game', e);
+                    }
+                } else {
+                    // No saved preference — reflect live game value into the UI
+                    const n = window.game.slots.length;
+                    const val = (n === 3) ? 3 : 5;
+                    slotRange.value = String(val);
+                    if (slotValue) slotValue.textContent = String(val);
+                    try { renderSlotLabelInputs(val); } catch (e) {}
+                }
+
                 clearInterval(id);
-            } else if (tries > 20) {
+            } else if (tries > 40) {
                 clearInterval(id);
             }
         }, 150);
