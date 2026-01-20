@@ -84,23 +84,55 @@ const CONFIG = {
         innerBottomPadding: 85 // Space reserved for buckets/dividers - slightly more than sides for anchor feel
     },
     
-    // Peg configuration - offset grid
+    // Peg configuration - offset grid (Peggle-style dense layout)
     PEGS: {
-        startY: 250,
-        horizontalGap: 140,   // Wider spacing to fill playfield width
-        verticalGap: 130,
-        radius: 14,           // Larger pegs for better visibility
-        rows: 11,
-        pegsPerRowOdd: 6,
-        pegsPerRowEven: 5
+        startY: 200,          // Adjusted for cannon space
+        horizontalGap: 95,    // Tighter (was 140)
+        verticalGap: 90,      // Tighter (was 130)
+        radius: 12,           // Slightly smaller (was 14)
+        rows: 14,             // More rows (was 11)
+        pegsPerRowOdd: 8,     // More pegs (was 6)
+        pegsPerRowEven: 7     // More pegs (was 5)
+    },
+
+    // Cannon design (Peggle-style ring + barrel)
+    CANNON: {
+        ringOuterRadius: 44,  // Outer radius of the ring
+        ringInnerRadius: 26,  // Inner radius (hole where barrel pivots)
+        barrelLength: 80,     // Barrel length from center
+        barrelWidthBase: 48,  // Width at base
+        barrelWidthTip: 36    // Width at muzzle
+    },
+
+    // Peg types
+    PEG_TYPES: {
+        BLUE: 'blue',
+        ORANGE: 'orange'
+    },
+
+    // Peggle-style mechanics
+    PEGGLE: {
+        orangePegCount: 25,
+        orangePoints: 100,
+        bluePoints: 10,
+        feverDuration: 2500,  // Slow-mo duration in ms
+        feverZoom: 1.4        // Camera zoom level
+    },
+
+    // Magazine (skeeball-style ball slot)
+    MAGAZINE: {
+        ballRadius: 14,       // Larger balls
+        spacing: 32,          // Space between ball centers
+        p1X: 37,              // Left slot X center
+        p2X: 1043,            // Right slot X center
+        y: 95                 // Start Y (top of first ball) - moved up
     },
     
     // Ball/Token - light gray with white border
     BALL: {
-        radius: 32,
+        radius: 20,           // Reduced from 32 for Peggle-style
         dropZoneMinY: 60,
-        dropZoneMaxY: 180
-        ,
+        dropZoneMaxY: 180,
         // Burst drop settings (number of tokens dropped per user drop and delay between them)
         // Default to a single coin per click
         burstCount: 1,
@@ -140,6 +172,7 @@ const CONFIG = {
     STATES: {
         IDLE: 'idle',
         AIMING: 'aiming',
+        CHARGING: 'charging',
         DROPPING: 'dropping',
         SCORING: 'scoring'
     }
@@ -166,3 +199,7 @@ Object.freeze(CONFIG.BALL);
 Object.freeze(CONFIG.SLOTS);
 Object.freeze(CONFIG.PHYSICS);
 Object.freeze(CONFIG.STATES);
+Object.freeze(CONFIG.CANNON);
+Object.freeze(CONFIG.PEG_TYPES);
+Object.freeze(CONFIG.PEGGLE);
+Object.freeze(CONFIG.MAGAZINE);

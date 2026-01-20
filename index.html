@@ -11,17 +11,30 @@
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
-        <button id="admin-gear" aria-label="Open settings" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.remove('hidden');p.classList.add('open');o.classList.remove('hidden');})()">⚙</button>
-        <div id="round-counter" aria-live="polite">Round 1 — 0 / 5</div>
+        <button id="admin-gear" aria-label="Open settings" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.remove('hidden');p.classList.add('open');p.setAttribute('aria-hidden','false');o.classList.remove('hidden');})()">MENU</button>
+        <!-- Player scores positioned inside playfield via JS -->
+        <div id="hud-p1" class="hud-player-panel left" aria-live="polite" style="opacity:0;">
+            <div class="player-label">P1</div>
+            <div id="p1-score" class="player-score">0</div>
+        </div>
+        <div id="hud-p2" class="hud-player-panel right" aria-live="polite" style="opacity:0;">
+            <div class="player-label">P2</div>
+            <div id="p2-score" class="player-score">0</div>
+        </div>
+        <!-- Center info (orange count, combo) positioned inside playfield via JS -->
+        <div id="hud-center" aria-live="polite" style="opacity:0;">
+            <div id="orange-counter"><span class="orange-dot"></span><span id="orange-remaining">25</span></div>
+            <div id="combo-meter">x1.0</div>
+        </div>
     </div>
     <!-- Admin slide-in panel -->
-    <div id="admin-overlay" class="hidden" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');o.classList.add('hidden');})()"></div>
+    <div id="admin-overlay" class="hidden" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');p.setAttribute('aria-hidden','true');o.classList.add('hidden');})()"></div>
     <aside id="admin-panel" class="hidden" aria-hidden="true">
         <header>
             <h3>Admin Settings</h3>
             <div class="header-actions">
-                <button id="admin-reset" aria-label="Reset settings">⟳</button>
-                <button id="admin-close" aria-label="Close" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');o.classList.add('hidden');})()">✕</button>
+                <button id="admin-reset" aria-label="Reset settings">Reset</button>
+                <button id="admin-close" aria-label="Close" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');p.setAttribute('aria-hidden','true');o.classList.add('hidden');})()">Close</button>
             </div>
         </header>
         <section id="admin-controls">
@@ -40,50 +53,69 @@
             </div>
 
             <div class="control-row">
-                <div class="control-label">Coins per click</div>
-                <input id="burst-count-range" type="range" min="1" max="10" value="1">
-                <div id="burst-count-value" class="value-badge">1</div>
+                <div class="control-label">Gravity</div>
+                <input id="gravity-range" type="range" min="0.2" max="0.9" step="0.01" value="0.45">
+                <div id="gravity-value" class="value-badge">0.45</div>
             </div>
 
             <div class="control-row">
-                <div class="control-label">Buckets</div>
-                <input id="slot-count-range" type="range" min="3" max="11" step="2" value="5">
-                <div id="slot-count-value" class="value-badge">5</div>
-            </div>
-
-            <div id="slot-labels" class="slot-labels">
-                <!-- Label inputs generated dynamically here -->
+                <div class="control-label">Power</div>
+                <input id="power-range" type="range" min="8" max="24" step="0.5" value="20">
+                <div id="power-value" class="value-badge">20</div>
             </div>
 
             <div class="control-row">
-                <div class="control-label">Theme</div>
-                <select id="theme-select">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
+                <div class="control-label">Mouth Speed</div>
+                <input id="mouth-speed-range" type="range" min="0.4" max="2.0" step="0.05" value="1.0">
+                <div id="mouth-speed-value" class="value-badge">1.0</div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">Shots/Player</div>
+                <input id="shots-range" type="range" min="3" max="15" step="1" value="10">
+                <div id="shots-value" class="value-badge">10</div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">Layout</div>
+                <select id="layout-select">
+                    <option value="classic">Classic</option>
+                    <option value="dense">Dense</option>
+                    <option value="sparse">Sparse</option>
                 </select>
             </div>
 
             <div class="control-row">
-                <div class="control-label">Trail Effect</div>
-                <select id="trail-select">
-                    <option value="off">Off</option>
-                    <option value="glow">Glow</option>
-                    <option value="smoke">Smoke</option>
-                    <option value="snow">Snow</option>
+                <div class="control-label">Level</div>
+                <select id="level-select">
+                    <option value="0">Level 1</option>
+                    <option value="1">Level 2</option>
+                    <option value="2">Level 3</option>
                 </select>
+            </div>
+
+            <!-- Trail Selection -->
+            <div class="trail-section">
+                <div class="trail-section-header">
+                    <h4>Ball Trails</h4>
+                    <span class="trail-count" id="trail-count">2/15</span>
+                </div>
+                <div class="trail-grid" id="trail-grid">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </section>
     </aside>
-    <!-- Round modal -->
+    <!-- Match modal -->
     <div id="round-modal" class="round-modal hidden" role="dialog" aria-modal="true">
         <div class="round-modal-content">
             <div class="modal-badge" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M12 2l2.7 5.47L20.6 8l-4.3 3.73L17.4 18 12 14.8 6.6 18l1.1-6.27L3.4 8l5.9-.53L12 2z" fill="#fff" opacity="0.96"/>
                 </svg>
-                <strong style="font-size:13px;">ROUND</strong>
+                <strong style="font-size:13px;">READY</strong>
             </div>
-            <div id="round-modal-text">Round info</div>
+            <div id="round-modal-text">Ready</div>
             <div class="round-modal-actions">
                 <button id="round-modal-ok">OK</button>
             </div>
@@ -92,23 +124,28 @@
 
     <!-- Confetti container -->
     <div id="confetti-container" aria-hidden="true"></div>
-    
+
     <!-- Load scripts in order -->
-    <script src="js/config.js?v=18"></script>
-    <script src="js/utils.js?v=18"></script>
-    <script src="js/core/ThemeManager.js?v=18"></script>
-    <script src="js/physics/Vector.js?v=18"></script>
-    <script src="js/physics/Collision.js?v=18"></script>
-    <script src="js/entities/Ball.js?v=18"></script>
-    <script src="js/entities/Peg.js?v=18"></script>
-    <script src="js/entities/Slot.js?v=18"></script>
-    <script src="js/entities/Board.js?v=18"></script>
-    <script src="js/core/Renderer.js?v=18"></script>
-    <script src="js/core/InputHandler.js?v=18"></script>
-    <script src="js/core/Game.js?v=18"></script>
-    <script src="js/sound.js?v=18"></script>
-    <script src="js/admin.js?v=18"></script>
-    <script src="js/particles.js?v=18"></script>
-    <script src="js/main.js?v=18"></script>
+    <script src="js/config.js?v=19"></script>
+    <script src="js/utils.js?v=19"></script>
+    <script src="js/core/ThemeManager.js?v=19"></script>
+    <script src="js/physics/Vector.js?v=19"></script>
+    <script src="js/physics/Collision.js?v=19"></script>
+    <script src="js/entities/Ball.js?v=19"></script>
+    <script src="js/entities/Peg.js?v=19"></script>
+    <script src="js/entities/Slot.js?v=19"></script>
+    <script src="js/entities/GoalMouth.js?v=19"></script>
+    <script src="js/entities/Magazine.js?v=19"></script>
+    <script src="js/layouts/Layout.js?v=19"></script>
+    <script src="js/layouts/Layouts.js?v=19"></script>
+    <script src="js/trails/TrailSystem.js?v=19"></script>
+    <script src="js/entities/Board.js?v=19"></script>
+    <script src="js/core/Renderer.js?v=19"></script>
+    <script src="js/core/InputHandler.js?v=19"></script>
+    <script src="js/core/Game.js?v=19"></script>
+    <script src="js/sound.js?v=19"></script>
+    <script src="js/admin.js?v=19"></script>
+    <script src="js/particles.js?v=19"></script>
+    <script src="js/main.js?v=19"></script>
 </body>
 </html>

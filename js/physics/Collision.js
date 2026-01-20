@@ -18,10 +18,15 @@ const Collision = {
             const dist = Math.sqrt(distSq);
             
             // Collision normal (from peg to ball)
-            const normal = new Vector(dx / dist, dy / dist);
+            let normal;
+            if (dist === 0) {
+                normal = new Vector(1, 0);
+            } else {
+                normal = new Vector(dx / dist, dy / dist);
+            }
             
             // Penetration depth
-            const penetration = minDist - dist;
+            const penetration = minDist - (dist || 0);
             
             return {
                 normal,
@@ -61,41 +66,8 @@ const Collision = {
         ball.vx = newVx;
         ball.vy = newVy;
         
-        // Mark peg as recently hit for visual feedback and debounced audio
-        const now = performance.now();
-        const lastHit = collision.peg.lastHitTime || 0;
-        collision.peg.lastHitTime = now;
-
-        // Play peg hit sound if available — debounce to avoid rapid repeats when
-        // a ball is very slow/sticking to a peg. Also prefer to play when ball
-        // has meaningful kinetic energy.
-        try {
-            if (window.audioManager && typeof window.audioManager.playPegHit === 'function') {
-                const variant = (typeof ball.soundVariant === 'number') ? ball.soundVariant : 0;
-                const cooldownMs = 160; // short debounce window
-                const speed = Math.hypot(ball.vx, ball.vy);
-                // Only play if last hit was sufficiently long ago OR ball has non-trivial speed
-                if ((now - lastHit) > cooldownMs && (speed > 0.4 || (now - lastHit) > 600)) {
-                    // Slight pitch/pan variation based on peg position to add realism:
-                    // deeper pegs -> slightly lower pitch; lateral position -> pan.
-                    try {
-                        const pegY = (collision.peg && typeof collision.peg.y === 'number') ? collision.peg.y : 0;
-                        const pegX = (collision.peg && typeof collision.peg.x === 'number') ? collision.peg.x : 0;
-                        const boardH = (CONFIG.BOARD && CONFIG.BOARD.height) ? CONFIG.BOARD.height : CONFIG.TARGET_HEIGHT;
-                        const boardW = (CONFIG.BOARD && CONFIG.BOARD.width) ? CONFIG.BOARD.width : CONFIG.TARGET_WIDTH;
-                        const normY = Math.max(0, Math.min(1, pegY / boardH));
-                        const normX = ((pegX - boardW * 0.5) / (boardW * 0.5));
-                        const pitchFactor = 1 - (normY * 0.18); // up to ~-18% at bottom
-                        const pan = Math.max(-0.6, Math.min(0.6, normX * 0.45));
-                        window.audioManager.playPegHit({ variant, pitch: pitchFactor, pan });
-                    } catch (e) {
-                        window.audioManager.playPegHit(variant);
-                    }
-                }
-            }
-        } catch (e) {
-            // ignore audio errors
-        }
+        // Mark peg as recently hit for visual feedback
+        // Note: Audio is now handled in Game._handlePegHit for orange/blue distinction
     },
     
     /**
@@ -113,18 +85,24 @@ const Collision = {
             ball.x = board.innerLeft + bRadius + EPS;
             ball.vx = Math.abs(ball.vx) * physics.wallRestitution;
             collided = true;
+            // Track wall bounce for style bonus
+            ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
+            ball.lastWallHitTime = performance.now();
             try {
                 if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
                     window.audioManager.playWallHit();
                 }
             } catch (e) {}
         }
-        
+
         // Right wall
         if (ball.x + bRadius > board.innerRight) {
             ball.x = board.innerRight - bRadius - EPS;
             ball.vx = -Math.abs(ball.vx) * physics.wallRestitution;
             collided = true;
+            // Track wall bounce for style bonus
+            ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
+            ball.lastWallHitTime = performance.now();
             try {
                 if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
                     window.audioManager.playWallHit();
@@ -139,6 +117,9 @@ const Collision = {
             for (const segment of board.chevronSegments) {
                 if (this.ballToChevronSegment(ball, segment)) {
                     collided = true;
+                    // Track wall bounce for style bonus
+                    ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
+                    ball.lastWallHitTime = performance.now();
                     try {
                         if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
                             window.audioManager.playWallHit();
@@ -268,6 +249,92 @@ const Collision = {
         return false;
     },
     
+    /**
+     * Check and handle collision with goal mouth rim (sides bounce the ball)
+     * Returns true if ball bounced off rim
+     */
+    ballToGoalMouthRim(ball, mouth) {
+        if (!mouth) return false;
+        const physics = CONFIG.PHYSICS;
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+
+        // Goal mouth dimensions
+        const mouthLeft = mouth.x;
+        const mouthRight = mouth.x + mouth.width;
+        const mouthTop = mouth.y;
+        const mouthCenterX = mouth.x + mouth.width / 2;
+
+        // Rim thickness (matches GoalMouth render)
+        const rimThickness = 8;
+        const innerHoleRadius = (mouth.width / 2) - rimThickness * 1.2;
+
+        // Only check if ball is near the mouth vertically
+        if (ball.y + bRadius < mouthTop - 10 || ball.y - bRadius > mouthTop + 30) {
+            return false;
+        }
+
+        // Check if ball is hitting the left rim
+        const distFromCenter = ball.x - mouthCenterX;
+        const absDistFromCenter = Math.abs(distFromCenter);
+
+        // Ball is in the rim zone (between inner hole edge and outer edge)
+        if (absDistFromCenter > innerHoleRadius - bRadius &&
+            absDistFromCenter < (mouth.width / 2) + bRadius &&
+            ball.y + bRadius > mouthTop) {
+
+            // Left rim collision
+            if (distFromCenter < 0 && ball.x + bRadius > mouthLeft) {
+                const rimInnerEdge = mouthCenterX - innerHoleRadius;
+                if (ball.x + bRadius > mouthLeft && ball.x < rimInnerEdge) {
+                    // Bounce off left rim - push right
+                    ball.x = mouthLeft - bRadius - 0.5;
+                    ball.vx = -Math.abs(ball.vx) * physics.wallRestitution;
+                    ball.vy *= 0.9;
+                    return true;
+                }
+            }
+
+            // Right rim collision
+            if (distFromCenter > 0 && ball.x - bRadius < mouthRight) {
+                const rimInnerEdge = mouthCenterX + innerHoleRadius;
+                if (ball.x - bRadius < mouthRight && ball.x > rimInnerEdge) {
+                    // Bounce off right rim - push left
+                    ball.x = mouthRight + bRadius + 0.5;
+                    ball.vx = Math.abs(ball.vx) * physics.wallRestitution;
+                    ball.vy *= 0.9;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    },
+
+    /**
+     * Check if ball falls into the goal mouth hole (not the rim)
+     */
+    ballToGoalMouth(ball, mouth) {
+        if (!mouth) return false;
+        const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
+
+        // Goal mouth center and inner hole
+        const mouthCenterX = mouth.x + mouth.width / 2;
+        const mouthTop = mouth.y;
+
+        // Rim thickness (matches GoalMouth render)
+        const rimThickness = 8;
+        const innerHoleRadius = (mouth.width / 2) - rimThickness * 1.2;
+
+        // Ball must be within the inner hole horizontally
+        const distFromCenter = Math.abs(ball.x - mouthCenterX);
+        const withinHole = distFromCenter < innerHoleRadius - bRadius * 0.5;
+
+        // Ball must be entering from the top
+        const withinY = ball.y + bRadius >= mouthTop && ball.y < mouthTop + mouth.height * 0.5;
+
+        return withinHole && withinY;
+    },
+
     /**
      * Check if ball has fully landed in slot
      */

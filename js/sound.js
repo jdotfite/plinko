@@ -371,6 +371,454 @@ class SoundManager {
             // silent
         }
     }
+
+    playCannon() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(160, now);
+            osc.frequency.exponentialRampToValueAtTime(90, now + 0.08);
+
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.7, now + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+            osc.connect(g);
+            g.connect(this.masterGain || this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.14);
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    /**
+     * Orange peg hit - higher pitched, more satisfying "ding"
+     * Accepts options: { pitch: number, pan: number }
+     */
+    playOrangePegHit(opts) {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+
+            // Parse options
+            let pitchFactor = 1.0;
+            let panValue = 0;
+            if (opts && typeof opts === 'object') {
+                if (typeof opts.pitch === 'number') pitchFactor = opts.pitch;
+                if (typeof opts.pan === 'number') panValue = opts.pan;
+            }
+
+            // Stereo panning
+            const panner = this.ctx.createStereoPanner();
+            panner.pan.setValueAtTime(panValue, now);
+            panner.connect(this.masterGain || this.ctx.destination);
+
+            // Bright, satisfying bell tone for orange peg (scaled by pitch)
+            const baseFreq = (1400 + Math.random() * 400) * pitchFactor;
+
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(baseFreq, now);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, now + 0.15);
+
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.65, now + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+            // Harmonic overtone for brightness
+            const osc2 = this.ctx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(baseFreq * 2, now);
+
+            const g2 = this.ctx.createGain();
+            g2.gain.setValueAtTime(0.0001, now);
+            g2.gain.exponentialRampToValueAtTime(0.3, now + 0.004);
+            g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+            // Third harmonic for extra shimmer
+            const osc3 = this.ctx.createOscillator();
+            osc3.type = 'sine';
+            osc3.frequency.setValueAtTime(baseFreq * 3, now);
+
+            const g3 = this.ctx.createGain();
+            g3.gain.setValueAtTime(0.0001, now);
+            g3.gain.exponentialRampToValueAtTime(0.15, now + 0.003);
+            g3.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+            osc.connect(g);
+            osc2.connect(g2);
+            osc3.connect(g3);
+            g.connect(panner);
+            g2.connect(panner);
+            g3.connect(panner);
+
+            osc.start(now);
+            osc.stop(now + 0.22);
+            osc2.start(now);
+            osc2.stop(now + 0.14);
+            osc3.start(now);
+            osc3.stop(now + 0.1);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Kerplunk sound - satisfying deep plunk when ball falls into hole
+     * Now with celebratory chimes!
+     */
+    playKerplunk() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // === Layer 1: Deep resonant "plunk" tone ===
+            const plunkFreq = 90 + Math.random() * 20;
+            const plunk = this.ctx.createOscillator();
+            plunk.type = 'sine';
+            plunk.frequency.setValueAtTime(plunkFreq * 1.6, now);
+            plunk.frequency.exponentialRampToValueAtTime(plunkFreq, now + 0.06);
+            plunk.frequency.exponentialRampToValueAtTime(plunkFreq * 0.8, now + 0.2);
+
+            const plunkGain = this.ctx.createGain();
+            plunkGain.gain.setValueAtTime(0.0001, now);
+            plunkGain.gain.exponentialRampToValueAtTime(0.6, now + 0.012);
+            plunkGain.gain.exponentialRampToValueAtTime(0.3, now + 0.08);
+            plunkGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+            const plunkLP = this.ctx.createBiquadFilter();
+            plunkLP.type = 'lowpass';
+            plunkLP.frequency.value = 500;
+
+            plunk.connect(plunkLP);
+            plunkLP.connect(plunkGain);
+            plunkGain.connect(dest);
+            plunk.start(now);
+            plunk.stop(now + 0.35);
+
+            // === Layer 2: Quick impact thud ===
+            const thunkFreq = 200 + Math.random() * 40;
+            const thunk = this.ctx.createOscillator();
+            thunk.type = 'triangle';
+            thunk.frequency.setValueAtTime(thunkFreq * 1.3, now);
+            thunk.frequency.exponentialRampToValueAtTime(thunkFreq * 0.5, now + 0.05);
+
+            const thunkGain = this.ctx.createGain();
+            thunkGain.gain.setValueAtTime(0.0001, now);
+            thunkGain.gain.exponentialRampToValueAtTime(0.4, now + 0.006);
+            thunkGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+            thunk.connect(thunkGain);
+            thunkGain.connect(dest);
+            thunk.start(now);
+            thunk.stop(now + 0.12);
+
+            // === Layer 3: Celebratory rising chimes! ===
+            const chimeNotes = [523.25, 659.25, 783.99]; // C5, E5, G5 - major chord arpeggio
+            const chimeStart = now + 0.04; // Slight delay after plunk
+
+            chimeNotes.forEach((freq, i) => {
+                const startTime = chimeStart + i * 0.06;
+
+                // Main chime tone
+                const chime = this.ctx.createOscillator();
+                chime.type = 'sine';
+                chime.frequency.setValueAtTime(freq, startTime);
+
+                const chimeGain = this.ctx.createGain();
+                chimeGain.gain.setValueAtTime(0.0001, startTime);
+                chimeGain.gain.exponentialRampToValueAtTime(0.3 - i * 0.05, startTime + 0.015);
+                chimeGain.gain.exponentialRampToValueAtTime(0.15, startTime + 0.1);
+                chimeGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.4);
+
+                // Shimmer overtone
+                const shimmer = this.ctx.createOscillator();
+                shimmer.type = 'sine';
+                shimmer.frequency.setValueAtTime(freq * 2, startTime);
+
+                const shimmerGain = this.ctx.createGain();
+                shimmerGain.gain.setValueAtTime(0.0001, startTime);
+                shimmerGain.gain.exponentialRampToValueAtTime(0.12, startTime + 0.01);
+                shimmerGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.25);
+
+                chime.connect(chimeGain);
+                shimmer.connect(shimmerGain);
+                chimeGain.connect(dest);
+                shimmerGain.connect(dest);
+
+                chime.start(startTime);
+                chime.stop(startTime + 0.45);
+                shimmer.start(startTime);
+                shimmer.stop(startTime + 0.3);
+            });
+
+            // === Layer 4: Sparkle noise for magic feel ===
+            const sparkleDur = 0.15;
+            const sparkleBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * sparkleDur), this.ctx.sampleRate);
+            const sparkleData = sparkleBuffer.getChannelData(0);
+            for (let i = 0; i < sparkleData.length; i++) {
+                const t = i / sparkleData.length;
+                // Sparkly noise that fades in then out
+                const envelope = Math.sin(t * Math.PI) * Math.pow(1 - t, 1.5);
+                sparkleData[i] = (Math.random() * 2 - 1) * envelope;
+            }
+
+            const sparkleSrc = this.ctx.createBufferSource();
+            sparkleSrc.buffer = sparkleBuffer;
+
+            // High pass for bright sparkle
+            const sparkleHP = this.ctx.createBiquadFilter();
+            sparkleHP.type = 'highpass';
+            sparkleHP.frequency.value = 3000;
+
+            const sparkleGain = this.ctx.createGain();
+            sparkleGain.gain.setValueAtTime(0.0001, now + 0.05);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.2, now + 0.08);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+            sparkleSrc.connect(sparkleHP);
+            sparkleHP.connect(sparkleGain);
+            sparkleGain.connect(dest);
+            sparkleSrc.start(now + 0.05);
+            sparkleSrc.stop(now + 0.05 + sparkleDur);
+
+            // === Layer 5: Final triumphant high note ===
+            const triumphStart = now + 0.22;
+            const triumph = this.ctx.createOscillator();
+            triumph.type = 'sine';
+            triumph.frequency.setValueAtTime(1046.50, triumphStart); // C6 - octave above
+
+            const triumphGain = this.ctx.createGain();
+            triumphGain.gain.setValueAtTime(0.0001, triumphStart);
+            triumphGain.gain.exponentialRampToValueAtTime(0.25, triumphStart + 0.02);
+            triumphGain.gain.exponentialRampToValueAtTime(0.1, triumphStart + 0.15);
+            triumphGain.gain.exponentialRampToValueAtTime(0.0001, triumphStart + 0.5);
+
+            triumph.connect(triumphGain);
+            triumphGain.connect(dest);
+            triumph.start(triumphStart);
+            triumph.stop(triumphStart + 0.55);
+
+        } catch (e) {
+            // silent fail
+        }
+    }
+
+    /**
+     * Extreme Fever fanfare - triumphant rising arpeggio
+     */
+    playFanfare() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+
+            // Triumphant Peggle-style arpeggio: C5 → E5 → G5 → C6
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            const spacing = 0.12;
+
+            notes.forEach((freq, i) => {
+                const startTime = now + i * spacing;
+
+                // Main tone
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
+
+                const g = this.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, startTime);
+                g.gain.exponentialRampToValueAtTime(0.5, startTime + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.25, startTime + 0.2);
+                g.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.5);
+
+                // Bright harmonic
+                const osc2 = this.ctx.createOscillator();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+                const g2 = this.ctx.createGain();
+                g2.gain.setValueAtTime(0.0001, startTime);
+                g2.gain.exponentialRampToValueAtTime(0.2, startTime + 0.015);
+                g2.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.3);
+
+                osc.connect(g);
+                osc2.connect(g2);
+                g.connect(this.masterGain || this.ctx.destination);
+                g2.connect(this.masterGain || this.ctx.destination);
+
+                osc.start(startTime);
+                osc.stop(startTime + 0.55);
+                osc2.start(startTime);
+                osc2.stop(startTime + 0.35);
+            });
+
+            // Final sustained chord (C major)
+            const chordStart = now + notes.length * spacing;
+            const chordFreqs = [523.25, 659.25, 783.99, 1046.50];
+
+            chordFreqs.forEach((freq) => {
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, chordStart);
+
+                const g = this.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, chordStart);
+                g.gain.exponentialRampToValueAtTime(0.35, chordStart + 0.05);
+                g.gain.exponentialRampToValueAtTime(0.0001, chordStart + 1.2);
+
+                osc.connect(g);
+                g.connect(this.masterGain || this.ctx.destination);
+                osc.start(chordStart);
+                osc.stop(chordStart + 1.3);
+            });
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Style bonus sound - achievement sparkle
+     */
+    playStyleBonus() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Quick sparkle whoosh
+            const whooshDur = 0.2;
+            const whooshBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * whooshDur), this.ctx.sampleRate);
+            const whooshData = whooshBuffer.getChannelData(0);
+            for (let i = 0; i < whooshData.length; i++) {
+                const t = i / whooshData.length;
+                const env = Math.sin(t * Math.PI) * (1 - t * 0.5);
+                whooshData[i] = (Math.random() * 2 - 1) * env;
+            }
+
+            const whooshSrc = this.ctx.createBufferSource();
+            whooshSrc.buffer = whooshBuffer;
+
+            const whooshHP = this.ctx.createBiquadFilter();
+            whooshHP.type = 'highpass';
+            whooshHP.frequency.value = 2500;
+
+            const whooshGain = this.ctx.createGain();
+            whooshGain.gain.setValueAtTime(0.0001, now);
+            whooshGain.gain.exponentialRampToValueAtTime(0.25, now + 0.03);
+            whooshGain.gain.exponentialRampToValueAtTime(0.0001, now + whooshDur);
+
+            whooshSrc.connect(whooshHP);
+            whooshHP.connect(whooshGain);
+            whooshGain.connect(dest);
+            whooshSrc.start(now);
+            whooshSrc.stop(now + whooshDur);
+
+            // Rising ding notes (quick arpeggio)
+            const notes = [880, 1100, 1320]; // A5, C#6, E6 (A major chord)
+            notes.forEach((freq, i) => {
+                const startTime = now + i * 0.04;
+
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
+
+                const g = this.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, startTime);
+                g.gain.exponentialRampToValueAtTime(0.4 - i * 0.08, startTime + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.25);
+
+                // Shimmer overtone
+                const osc2 = this.ctx.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+                const g2 = this.ctx.createGain();
+                g2.gain.setValueAtTime(0.0001, startTime);
+                g2.gain.exponentialRampToValueAtTime(0.15, startTime + 0.008);
+                g2.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.15);
+
+                osc.connect(g);
+                osc2.connect(g2);
+                g.connect(dest);
+                g2.connect(dest);
+
+                osc.start(startTime);
+                osc.stop(startTime + 0.3);
+                osc2.start(startTime);
+                osc2.stop(startTime + 0.18);
+            });
+
+        } catch (e) {
+            // silent
+        }
+    }
 }
 
 // Expose a simple global audio manager

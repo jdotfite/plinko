@@ -46,10 +46,10 @@ class InputHandler {
         
         const pos = this.renderer.getEventPosition(event);
         
-        // Check if in drop zone
-        if (this.isInDropZone(pos.x, pos.y)) {
+        // Check if in board bounds
+        if (this.isInAimZone(pos.x, pos.y)) {
             this.isPressed = true;
-            this.currentX = this.constrainX(pos.x);
+            this.currentX = pos.x;
             this.currentY = pos.y;
             
             if (this.onAimStart) {
@@ -67,7 +67,7 @@ class InputHandler {
         event.preventDefault();
         
         const pos = this.renderer.getEventPosition(event);
-        this.currentX = this.constrainX(pos.x);
+        this.currentX = pos.x;
         this.currentY = pos.y;
         
         if (this.onAimMove) {
@@ -86,7 +86,7 @@ class InputHandler {
         this.isPressed = false;
         
         if (this.onDrop && this.currentX !== null) {
-            this.onDrop(this.currentX);
+            this.onDrop(this.currentX, this.currentY);
         }
         
         this.currentX = null;
@@ -96,16 +96,12 @@ class InputHandler {
     /**
      * Check if position is in drop zone
      */
-    isInDropZone(x, y) {
+    isInAimZone(x, y) {
         const board = CONFIG.BOARD;
-        const ball = CONFIG.BALL;
-         // Relax drop-zone vertical sensitivity so clicks/taps slightly below
-         // the visual drop area still count as drops on different screen sizes.
-         const extraReach = 260; // pixels of forgiving region beneath configured drop zone
-         return y >= ball.dropZoneMinY &&
-             y <= (ball.dropZoneMaxY + extraReach) &&
-             x >= board.marginX &&
-             x <= board.marginX + board.width;
+        return y >= board.marginTop &&
+            y <= board.marginTop + board.height &&
+            x >= board.marginX &&
+            x <= board.marginX + board.width;
     }
     
     /**

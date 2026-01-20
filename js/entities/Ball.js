@@ -15,6 +15,17 @@ class Ball {
         this.landedSlot = null;
         this._trail = [];
         this.soundVariant = 0;
+        this.hiddenUntilExit = false;
+        this.cannonOrigin = null;
+        this.muzzleDist = 0;
+
+        // Style bonus tracking
+        this.distanceTraveled = 0;
+        this.firstPegHit = false;
+        this.distanceBeforeFirstHit = 0;
+        this.wallBounceCount = 0;
+        this.lastWallHitTime = 0;
+        this.awardedBonuses = new Set(); // Track which bonuses already awarded
     }
 
     reset(x, y) {
@@ -26,6 +37,14 @@ class Ball {
         this.landed = false;
         this.landedSlot = null;
         this._trail = [];
+
+        // Reset style bonus tracking
+        this.distanceTraveled = 0;
+        this.firstPegHit = false;
+        this.distanceBeforeFirstHit = 0;
+        this.wallBounceCount = 0;
+        this.lastWallHitTime = 0;
+        this.awardedBonuses = new Set();
     }
 
     drop() {
@@ -34,22 +53,48 @@ class Ball {
         this.vx = Utils.randomVariance(0, 0.5);
     }
 
-    update(dt) {
+    launch(angle, power) {
+        this.active = true;
+        this.landed = false;
+        this.vx = Math.cos(angle) * power;
+        this.vy = Math.sin(angle) * power;
+    }
+
+    update(dt, tuning) {
         if (!this.active || this.landed) return;
 
-        const p = CONFIG.PHYSICS;
-        this.vy += p.gravity;
-        this.vx *= p.friction;
-        this.vy *= p.friction;
+        const p = tuning || CONFIG.PHYSICS;
+        const gravity = (typeof p.gravity === 'number') ? p.gravity : CONFIG.PHYSICS.gravity;
+        const friction = (typeof p.friction === 'number') ? p.friction : CONFIG.PHYSICS.friction;
+
+        this.vy += gravity;
+        this.vx *= friction;
+        this.vy *= friction;
 
         const speed = Math.hypot(this.vx, this.vy);
-        if (speed > p.maxVelocity) {
-            const s = p.maxVelocity / speed;
+        const maxVelocity = (typeof p.maxVelocity === 'number') ? p.maxVelocity : CONFIG.PHYSICS.maxVelocity;
+        if (speed > maxVelocity) {
+            const s = maxVelocity / speed;
             this.vx *= s; this.vy *= s;
+        }
+
+        // Track distance traveled for style bonuses
+        const moveDist = Math.hypot(this.vx, this.vy);
+        this.distanceTraveled += moveDist;
+        if (!this.firstPegHit) {
+            this.distanceBeforeFirstHit = this.distanceTraveled;
         }
 
         this.x += this.vx;
         this.y += this.vy;
+
+        if (this.hiddenUntilExit && this.cannonOrigin) {
+            const dx = this.x - this.cannonOrigin.x;
+            const dy = this.y - this.cannonOrigin.y;
+            if (Math.hypot(dx, dy) >= (this.muzzleDist || 0)) {
+                this.hiddenUntilExit = false;
+            }
+        }
 
         // Trail handling
         try {
@@ -84,6 +129,7 @@ class Ball {
     }
 
     render(ctx, scale) {
+        if (this.hiddenUntilExit) return;
         try {
             const type = window.currentTrailType || 'off';
             if (this._trail && this._trail.length > 1 && type !== 'off') this._renderTrail(ctx, scale, type);
@@ -115,79 +161,482 @@ class Ball {
 
         const isDark = (typeof THEME_STATE !== 'undefined' && THEME_STATE.current === 'dark');
         const base = isDark ? 255 : 24;
+        const now = performance.now();
 
-        if (type === 'glow') {
-            ctx.save();
-            const len = pts.length;
-            for (let i = 0; i < len; i++) {
-                const p = pts[i];
-                const t = i / (len - 1 || 1);
-                const size = (this.radius * scale) * (0.14 + Math.pow(t, 1.6) * 1.0);
-                const alpha = Math.min(1, (0.02 + Math.pow(t, 1.4) * 0.45) * 0.36);
-                ctx.beginPath();
-                ctx.globalAlpha = alpha;
-                ctx.fillStyle = `rgba(${base},${base},${base},1)`;
-                ctx.shadowColor = `rgba(${base},${base},${base},${0.18 * alpha})`;
-                ctx.shadowBlur = 18 * t * scale;
-                ctx.arc(p.x * scale, p.y * scale, size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-            return;
+        // Route to specific trail renderer
+        switch (type) {
+            case 'classic': this._trailClassic(ctx, scale, pts, base); break;
+            case 'glow': this._trailGlow(ctx, scale, pts, base); break;
+            case 'smoke': this._trailSmoke(ctx, scale, pts, base); break;
+            case 'bubbles': this._trailBubbles(ctx, scale, pts, now); break;
+            case 'pixels': this._trailPixels(ctx, scale, pts, base); break;
+            case 'fire': this._trailFire(ctx, scale, pts, now); break;
+            case 'ice': this._trailIce(ctx, scale, pts, now); break;
+            case 'lightning': this._trailLightning(ctx, scale, pts, now); break;
+            case 'hearts': this._trailHearts(ctx, scale, pts); break;
+            case 'rainbow': this._trailRainbow(ctx, scale, pts, now); break;
+            case 'stars': this._trailStars(ctx, scale, pts, now); break;
+            case 'neon': this._trailNeon(ctx, scale, pts, now); break;
+            case 'gold': this._trailGold(ctx, scale, pts, now); break;
+            case 'plasma': this._trailPlasma(ctx, scale, pts, now); break;
+            case 'confetti': this._trailConfetti(ctx, scale, pts, now); break;
+            default: this._trailClassic(ctx, scale, pts, base);
         }
+    }
 
-        if (type === 'snow') {
-            ctx.save();
-            const len = pts.length;
-            for (let i = 0; i < len; i++) {
-                const p = pts[i];
-                const t = i / (len - 1 || 1);
-                const size = (this.radius * scale) * (0.08 + Math.pow(t, 1.4) * 0.9) * 0.9;
-                const alpha = Math.min(1, (0.02 + Math.pow(t, 1.4) * 0.55) * 0.36);
-                ctx.save();
-                ctx.translate(p.x * scale, p.y * scale);
-                ctx.rotate(((i % 4) / 4) * Math.PI * 0.5);
-                ctx.globalAlpha = alpha;
-                ctx.fillStyle = `rgba(${base},${base},${base},1)`;
-                ctx.fillRect(-size * 0.12, -size, size * 0.24, size * 2);
-                ctx.fillRect(-size, -size * 0.12, size * 2, size * 0.24);
-                ctx.restore();
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-            return;
+    // === CLASSIC: Simple fading dots ===
+    _trailClassic(ctx, scale, pts, base) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.2 + t * 0.6);
+            const alpha = t * 0.5;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `rgb(${base},${base},${base})`;
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size, 0, Math.PI * 2);
+            ctx.fill();
         }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
 
-        // smoke / ribbon fallback: simple tapered stroked path
+    // === GLOW: Soft ethereal orbs with bloom ===
+    _trailGlow(ctx, scale, pts, base) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.14 + Math.pow(t, 1.6) * 1.0);
+            const alpha = Math.min(1, (0.02 + Math.pow(t, 1.4) * 0.45) * 0.5);
+            ctx.beginPath();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `rgba(${base},${base},${base},1)`;
+            ctx.shadowColor = `rgba(${base},${base},${base},${0.3 * alpha})`;
+            ctx.shadowBlur = 20 * t * scale;
+            ctx.arc(p.x * scale, p.y * scale, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === SMOKE: Wispy smoke puffs ===
+    _trailSmoke(ctx, scale, pts, base) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.3 + t * 1.2);
+            const alpha = (1 - t) * 0.25;
+            const offset = Math.sin(i * 0.5) * 3 * scale;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `rgba(${base},${base},${base},1)`;
+            ctx.beginPath();
+            ctx.arc(p.x * scale + offset, p.y * scale, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === BUBBLES: Floating soap bubbles ===
+    _trailBubbles(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i += 2) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const wobble = Math.sin(now * 0.005 + i) * 4 * scale;
+            const size = (this.radius * scale) * (0.25 + t * 0.5);
+            const alpha = t * 0.6;
+
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = `rgba(100, 200, 255, 0.8)`;
+            ctx.lineWidth = 1.5 * scale;
+            ctx.beginPath();
+            ctx.arc(p.x * scale + wobble, p.y * scale - wobble * 0.5, size, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Bubble highlight
+            ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
+            ctx.beginPath();
+            ctx.arc(p.x * scale + wobble - size * 0.3, p.y * scale - wobble * 0.5 - size * 0.3, size * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === PIXELS: Retro 8-bit blocks ===
+    _trailPixels(ctx, scale, pts, base) {
+        ctx.save();
+        const len = pts.length;
+        const pixelSize = 6 * scale;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const alpha = t * 0.7;
+            // Snap to pixel grid
+            const px = Math.floor(p.x * scale / pixelSize) * pixelSize;
+            const py = Math.floor(p.y * scale / pixelSize) * pixelSize;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `rgb(${base},${base},${base})`;
+            ctx.fillRect(px, py, pixelSize, pixelSize);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === FIRE: Blazing flames ===
+    _trailFire(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const flicker = Math.sin(now * 0.02 + i * 2) * 0.3 + 0.7;
+            const size = (this.radius * scale) * (0.2 + t * 0.9) * flicker;
+            const alpha = t * 0.8;
+
+            // Outer orange glow
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.fillStyle = '#FF4500';
+            ctx.shadowColor = '#FF4500';
+            ctx.shadowBlur = 15 * scale;
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size * 1.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner yellow core
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === ICE: Frozen crystals ===
+    _trailIce(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.15 + t * 0.6);
+            const alpha = t * 0.7;
+            const rotation = (now * 0.001 + i * 0.5) % (Math.PI * 2);
+
+            ctx.save();
+            ctx.translate(p.x * scale, p.y * scale);
+            ctx.rotate(rotation);
+            ctx.globalAlpha = alpha;
+
+            // Crystal shape (6-pointed)
+            ctx.fillStyle = '#87CEEB';
+            ctx.shadowColor = '#00BFFF';
+            ctx.shadowBlur = 8 * scale;
+            for (let j = 0; j < 6; j++) {
+                ctx.rotate(Math.PI / 3);
+                ctx.fillRect(-size * 0.1, 0, size * 0.2, size);
+            }
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === LIGHTNING: Electric bolts ===
+    _trailLightning(ctx, scale, pts, now) {
+        if (pts.length < 3) return;
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        const last = pts[pts.length - 1];
-        const first = pts[0];
-        const grad = ctx.createLinearGradient(first.x * scale, first.y * scale, last.x * scale, last.y * scale);
-        grad.addColorStop(0, `rgba(${base},${base},${base},0)`);
-        grad.addColorStop(0.6, `rgba(${base},${base},${base},0.32)`);
-        grad.addColorStop(1, `rgba(${base},${base},${base},0.72)`);
 
-        const steps = 4;
-        for (let s = steps; s >= 1; s--) {
-            const t = s / steps;
+        // Main bolt
+        ctx.strokeStyle = '#00FFFF';
+        ctx.shadowColor = '#00FFFF';
+        ctx.shadowBlur = 15 * scale;
+        ctx.lineWidth = 3 * scale;
+        ctx.globalAlpha = 0.9;
+
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i++) {
+            const p = pts[i];
+            const jitter = (Math.random() - 0.5) * 8 * scale;
+            const px = p.x * scale + jitter;
+            const py = p.y * scale + jitter;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // White core
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5 * scale;
+        ctx.stroke();
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === HEARTS: Love particles ===
+    _trailHearts(ctx, scale, pts) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i += 2) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.3 + t * 0.4);
+            const alpha = t * 0.8;
+
+            ctx.save();
+            ctx.translate(p.x * scale, p.y * scale);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#FF69B4';
+            ctx.shadowColor = '#FF1493';
+            ctx.shadowBlur = 5 * scale;
+
+            // Draw heart shape
             ctx.beginPath();
-            for (let i = 0; i < pts.length; i++) {
-                const p = pts[i];
-                const px = p.x * scale, py = p.y * scale;
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
+            ctx.moveTo(0, size * 0.3);
+            ctx.bezierCurveTo(-size, -size * 0.3, -size, size * 0.6, 0, size);
+            ctx.bezierCurveTo(size, size * 0.6, size, -size * 0.3, 0, size * 0.3);
+            ctx.fill();
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === RAINBOW: Full spectrum magic ===
+    _trailRainbow(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
+
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.2 + t * 0.7);
+            const alpha = t * 0.7;
+            const colorIdx = Math.floor((now * 0.003 + i * 0.3) % colors.length);
+
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = colors[colorIdx];
+            ctx.shadowColor = colors[colorIdx];
+            ctx.shadowBlur = 12 * scale;
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === STARS: Twinkling stardust ===
+    _trailStars(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const twinkle = Math.sin(now * 0.01 + i * 3) * 0.3 + 0.7;
+            const size = (this.radius * scale) * (0.15 + t * 0.35) * twinkle;
+            const alpha = t * 0.9 * twinkle;
+
+            ctx.save();
+            ctx.translate(p.x * scale, p.y * scale);
+            ctx.rotate(now * 0.002 + i);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowColor = '#FFFACD';
+            ctx.shadowBlur = 10 * scale;
+
+            // 4-pointed star
+            ctx.beginPath();
+            for (let j = 0; j < 4; j++) {
+                const angle = (j / 4) * Math.PI * 2;
+                const outerX = Math.cos(angle) * size;
+                const outerY = Math.sin(angle) * size;
+                const innerAngle = angle + Math.PI / 4;
+                const innerX = Math.cos(innerAngle) * size * 0.3;
+                const innerY = Math.sin(innerAngle) * size * 0.3;
+                if (j === 0) ctx.moveTo(outerX, outerY);
+                else ctx.lineTo(outerX, outerY);
+                ctx.lineTo(innerX, innerY);
             }
-            ctx.lineWidth = (6 * t + 1.5) * scale;
-            ctx.strokeStyle = grad;
-            ctx.globalAlpha = (0.08 + 0.6 * t) * 0.36;
-            ctx.shadowColor = `rgba(${base},${base},${base},${0.06 * t})`;
-            ctx.shadowBlur = 4 * t * scale;
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === NEON: Vibrant synthwave glow ===
+    _trailNeon(ctx, scale, pts, now) {
+        if (pts.length < 2) return;
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const hue = (now * 0.05) % 360;
+        const color = `hsl(${hue}, 100%, 50%)`;
+
+        // Outer glow
+        ctx.strokeStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 25 * scale;
+        ctx.lineWidth = 8 * scale;
+        ctx.globalAlpha = 0.4;
+
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i++) {
+            const p = pts[i];
+            if (i === 0) ctx.moveTo(p.x * scale, p.y * scale);
+            else ctx.lineTo(p.x * scale, p.y * scale);
+        }
+        ctx.stroke();
+
+        // Bright core
+        ctx.shadowBlur = 10 * scale;
+        ctx.lineWidth = 3 * scale;
+        ctx.globalAlpha = 0.9;
+        ctx.stroke();
+
+        // White center
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5 * scale;
+        ctx.globalAlpha = 0.8;
+        ctx.stroke();
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === GOLD: Pure luxury ===
+    _trailGold(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const shimmer = Math.sin(now * 0.008 + i * 2) * 0.2 + 0.8;
+            const size = (this.radius * scale) * (0.2 + t * 0.7);
+            const alpha = t * 0.8 * shimmer;
+
+            // Gold gradient effect
+            const gradient = ctx.createRadialGradient(
+                p.x * scale, p.y * scale, 0,
+                p.x * scale, p.y * scale, size
+            );
+            gradient.addColorStop(0, '#FFF8DC');
+            gradient.addColorStop(0.5, '#FFD700');
+            gradient.addColorStop(1, '#B8860B');
+
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 15 * scale;
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === PLASMA: Unstable energy core ===
+    _trailPlasma(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const pulse = Math.sin(now * 0.015 + i * 1.5) * 0.4 + 0.6;
+            const size = (this.radius * scale) * (0.25 + t * 0.8) * pulse;
+            const alpha = t * 0.85;
+
+            // Outer plasma ring
+            const hue1 = (now * 0.1 + i * 20) % 360;
+            const hue2 = (hue1 + 60) % 360;
+
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.strokeStyle = `hsl(${hue1}, 100%, 60%)`;
+            ctx.shadowColor = `hsl(${hue1}, 100%, 50%)`;
+            ctx.shadowBlur = 20 * scale;
+            ctx.lineWidth = 3 * scale;
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size, 0, Math.PI * 2);
             ctx.stroke();
+
+            // Inner core
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `hsl(${hue2}, 100%, 80%)`;
+            ctx.shadowBlur = 10 * scale;
+            ctx.beginPath();
+            ctx.arc(p.x * scale, p.y * scale, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // === CONFETTI: Party celebration ===
+    _trailConfetti(ctx, scale, pts, now) {
+        ctx.save();
+        const len = pts.length;
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+
+        for (let i = 0; i < len; i++) {
+            const p = pts[i];
+            const t = i / (len - 1 || 1);
+            const size = (this.radius * scale) * (0.2 + t * 0.4);
+            const alpha = t * 0.85;
+            const rotation = (now * 0.005 + i * 0.8) % (Math.PI * 2);
+            const color = colors[i % colors.length];
+
+            ctx.save();
+            ctx.translate(p.x * scale, p.y * scale);
+            ctx.rotate(rotation);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 5 * scale;
+
+            // Random confetti shapes
+            if (i % 3 === 0) {
+                // Square
+                ctx.fillRect(-size * 0.5, -size * 0.5, size, size);
+            } else if (i % 3 === 1) {
+                // Circle
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Triangle
+                ctx.beginPath();
+                ctx.moveTo(0, -size * 0.6);
+                ctx.lineTo(size * 0.5, size * 0.4);
+                ctx.lineTo(-size * 0.5, size * 0.4);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
         }
         ctx.globalAlpha = 1;
         ctx.restore();
     }
 }
+
