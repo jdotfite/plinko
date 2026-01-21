@@ -82,7 +82,7 @@ html, body {
 #admin-panel.hidden { left: -320px; }
 
 #admin-panel header {
-    display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0;
 }
 /* Header actions (reset + close) */
 .header-actions { display:flex; gap:8px; align-items:center; }
@@ -104,8 +104,8 @@ html, body {
 }
 .header-actions button#admin-close:hover { background:#f7f7f7; }
 
-/* Admin controls container */
-#admin-controls { display:flex; flex-direction:column; gap:12px; }
+/* Admin controls container - scrollable */
+#admin-controls { display:flex; flex-direction:column; gap:12px; flex:1; overflow-y:auto; overflow-x:hidden; padding-bottom:20px; }
 /* Generic control row used in other places */
 .control-row { display:flex; align-items:center; gap:10px; }
 /* Specific adjustments for rows inside the admin panel */

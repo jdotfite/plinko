@@ -95,7 +95,7 @@ class Game {
             maxChargeMs: 900,
             pegScore: 10,
             comboStep: 0.1,
-            mouthSpeed: 3.0,
+            mouthSpeed: 2.0,
             mouthWidth: 200,
             mouthBonus: 120
         };
