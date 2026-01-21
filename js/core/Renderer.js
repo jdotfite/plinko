@@ -212,9 +212,53 @@ class Renderer {
 
         const ringOuter = cfg.ringOuterRadius * scale;
         const ringInner = cfg.ringInnerRadius * scale;
-        const barrelLength = cfg.barrelLength * scale;
+        let barrelLength = cfg.barrelLength * scale;
         const barrelBase = cfg.barrelWidthBase * scale;
         const barrelTip = cfg.barrelWidthTip * scale;
+
+        // Cannon charging animation - subtle compress while holding
+        if (game.state === CONFIG.STATES.CHARGING && game.chargeStart) {
+            const elapsed = performance.now() - game.chargeStart;
+            const maxCharge = game.tuning?.maxChargeMs || 900;
+            const chargeProgress = Math.min(1, elapsed / maxCharge);
+
+            // Subtle compression (1.0 -> 0.92 at full charge)
+            const compression = 0.08 * chargeProgress;
+            barrelLength *= (1 - compression);
+        }
+        // Cannon fire animation - spring forward on release
+        else if (game.cannonFireAnim) {
+            const elapsed = performance.now() - game.cannonFireAnim.startTime;
+            const duration = game.cannonFireAnim.duration;
+            const progress = Math.min(1, elapsed / duration);
+
+            if (progress >= 1) {
+                game.cannonFireAnim = null;
+            } else {
+                // Spring forward: start slightly compressed, small overshoot, then settle
+                // Phase 1 (0-0.3): Spring forward to 103% (small overshoot)
+                // Phase 2 (0.3-0.6): Bounce back to 99%
+                // Phase 3 (0.6-1.0): Settle to 100%
+                let lengthMult;
+                if (progress < 0.3) {
+                    // Spring forward with small overshoot
+                    const t = progress / 0.3;
+                    const eased = 1 - Math.pow(1 - t, 3);  // Ease out cubic
+                    lengthMult = 0.92 + 0.11 * eased;  // 0.92 -> 1.03
+                } else if (progress < 0.6) {
+                    // Small bounce back
+                    const t = (progress - 0.3) / 0.3;
+                    const eased = t * t;
+                    lengthMult = 1.03 - 0.04 * eased;  // 1.03 -> 0.99
+                } else {
+                    // Settle to normal
+                    const t = (progress - 0.6) / 0.4;
+                    const eased = 1 - Math.pow(1 - t, 2);
+                    lengthMult = 0.99 + 0.01 * eased;  // 0.99 -> 1.0
+                }
+                barrelLength *= lengthMult;
+            }
+        }
 
         ctx.save();
         ctx.translate(x, y);
@@ -364,9 +408,9 @@ class Renderer {
 
         // Inner hole - dark to show depth
         const holeGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, ringInner);
-        holeGrad.addColorStop(0, '#2a2a2a');
-        holeGrad.addColorStop(0.7, '#1a1a1a');
-        holeGrad.addColorStop(1, '#333333');
+        holeGrad.addColorStop(0, '#fff');
+        holeGrad.addColorStop(0.7, '#fff');
+        holeGrad.addColorStop(1, '#ffffff');
         ctx.fillStyle = holeGrad;
         ctx.beginPath();
         ctx.arc(0, 0, ringInner - 1 * scale, 0, Math.PI * 2);

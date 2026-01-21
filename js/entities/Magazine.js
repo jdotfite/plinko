@@ -33,12 +33,35 @@ class Magazine {
     }
 
     setRemaining(count) {
-        this.remaining = Math.max(0, Math.min(this.total, Math.floor(count)));
+        const newRemaining = Math.max(0, Math.min(this.total, Math.floor(count)));
+        const decreased = newRemaining < this.remaining;
+        this.remaining = newRemaining;
+
+        // Trigger cannon reload animation when a ball is used
+        if (decreased && this.initialized && this.remaining > 0) {
+            this.startReloadAnimation();
+        }
+    }
+
+    /**
+     * Start cannon reload animation - balls slide up, top ball loads into cannon
+     */
+    startReloadAnimation() {
+        this.cannonReady = false;  // Cannon empty until animation completes
+        this.reloadAnimation = {
+            startTime: performance.now(),
+            duration: 250  // ms
+        };
+        // Initialize offsets - all balls start at current position (will slide up)
+        this.ballOffsets = [];
+        for (let i = 0; i < this.remaining; i++) {
+            this.ballOffsets[i] = 0;
+        }
+        this.cannonBallOffset = 0;
     }
 
     useShot() {
         // Just return if we have remaining shots - no animation here
-        // Animation only happens when ball returns from goal mouth
         return this.remaining > 0;
     }
 
@@ -68,6 +91,7 @@ class Magazine {
         this.remaining = this.total;
         this.returnBall = null;
         this.loadingAnimation = null;
+        this.reloadAnimation = null;
         this.ballOffsets = [];
         this.ballsDropped = 0;
         this.cannonBallOffset = 0;
@@ -220,6 +244,39 @@ class Magazine {
                 this.completeReturn();
             }
         }
+
+        // Update reload animation (balls slide up, top ball loads into cannon)
+        if (this.reloadAnimation) {
+            const elapsed = performance.now() - this.reloadAnimation.startTime;
+            const progress = Math.min(1, elapsed / this.reloadAnimation.duration);
+
+            // Ease out for smooth deceleration
+            const eased = 1 - Math.pow(1 - progress, 2);
+
+            // All balls shift up by one slot spacing
+            const cfg = CONFIG.MAGAZINE;
+            const shiftAmount = -cfg.spacing * eased; // Negative = upward
+
+            for (let i = 0; i < this.ballOffsets.length; i++) {
+                this.ballOffsets[i] = shiftAmount;
+            }
+
+            // Track progress for top ball fade (loading into cannon)
+            this.cannonBallOffset = progress;
+
+            // Play cannon load sound near start
+            if (elapsed < 20) {
+                this._playCannonLoadSound();
+            }
+
+            // Complete when done
+            if (progress >= 1) {
+                this.reloadAnimation = null;
+                this.ballOffsets = [];
+                this.cannonBallOffset = 0;
+                this.cannonReady = true;
+            }
+        }
     }
 
     render(ctx, scale, cannonLoaded = false) {
@@ -256,12 +313,14 @@ class Magazine {
         // Don't render balls until animation has been triggered
         if (this.initialized) {
             const isCannonLoading = this.loadingAnimation && this.loadingAnimation.phase === 'cannon_loading';
-            // Skip bottom slot if cannon is loaded (ball slid up and out)
-            const reserveForCannon = cannonLoaded || this.cannonReady;
+            const isReloading = !!this.reloadAnimation;
+            // Always reserve bottom slot once cannon is ready (ball is either in cannon or in flight)
+            // Don't reserve during reload animation (all balls visible, top one fading into cannon)
+            const reserveSlot = this.cannonReady && this.remaining > 0 && !isReloading;
 
             for (let i = 0; i < this.remaining; i++) {
-                // Skip bottom slot after cannon is loaded (that slot is now empty)
-                if (reserveForCannon && i === this.remaining - 1) {
+                // Skip bottom slot (that ball is in cannon or in flight)
+                if (reserveSlot && i === this.remaining - 1) {
                     continue;
                 }
 
@@ -269,8 +328,8 @@ class Magazine {
                 const offset = (this.ballOffsets[i] || 0) * scale;
                 const yPos = startY + i * spacing + offset;
 
-                // During cannon loading, fade out the top ball as it slides into cannon
-                if (isCannonLoading && i === 0) {
+                // During cannon loading or reload, fade out the top ball as it slides into cannon
+                if ((isCannonLoading || isReloading) && i === 0) {
                     ctx.save();
                     ctx.globalAlpha = 1 - this.cannonBallOffset;
                     this._renderBall(ctx, x, yPos, ballRadius, scale);

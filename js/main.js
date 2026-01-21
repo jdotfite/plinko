@@ -185,12 +185,40 @@ document.addEventListener('DOMContentLoaded', () => {
         window.game._notifyHud();
     }
 
+    // Helper to update modal content (defined first so it can be used below)
+    window.updateModalContent = function(levelNum, title, isWin = false) {
+        const modalContent = document.querySelector('.round-modal-content');
+        const levelEl = document.getElementById('modal-level');
+        const titleEl = document.getElementById('round-modal-text');
+        const ballsEl = document.getElementById('modal-balls');
+        const medallionLetter = document.querySelector('.medallion-letter');
+        const playBtn = document.getElementById('round-modal-ok');
+
+        // Toggle win state class for celebration styling
+        if (modalContent) {
+            modalContent.classList.toggle('win-state', isWin);
+        }
+
+        if (levelEl) levelEl.textContent = isWin ? 'Complete!' : `Level ${levelNum}`;
+        if (titleEl) titleEl.textContent = title;
+        if (ballsEl && window.game) {
+            ballsEl.textContent = `${window.game.shotsPerPlayer} balls to use`;
+        }
+        if (medallionLetter) {
+            medallionLetter.textContent = isWin ? '!' : levelNum;
+        }
+        if (playBtn) {
+            const btnSpan = playBtn.querySelector('span');
+            if (btnSpan) btnSpan.textContent = isWin ? 'NEXT' : 'PLAY';
+        }
+    };
+
     // Match modal wiring
     const modal = document.getElementById('round-modal');
-    const textEl = document.getElementById('round-modal-text');
     const okBtn = document.getElementById('round-modal-ok');
-    if (modal && textEl && okBtn) {
-        textEl.textContent = 'Clear all orange pegs!';
+    if (modal && okBtn) {
+        // Update modal content for initial display
+        window.updateModalContent(1, 'Ready to Play!');
         modal.classList.remove('hidden');
         okBtn.onclick = () => {
             modal.classList.add('hidden');

@@ -16,6 +16,7 @@ class Game {
         this.shotsTaken = [0, 0];
         this.matchOver = false;
         this.combo = 0;
+        this.freeBallEarned = false;
 
         // Peggle-style tracking
         this.orangePegsRemaining = CONFIG.PEGGLE.orangePegCount;
@@ -106,12 +107,12 @@ class Game {
             width: 200,   // Wider mouth
             height: 60,   // Taller tube
             speed: 3.0,   // Faster movement
-            y: this.board.innerBottom - 155  // Position above scaled bottom UI
+            y: this.board.innerBottom - 75  // Moved down 155px
         });
 
         // Fever slots - score multiplier slots during Extreme Fever
         this.feverSlots = new FeverSlots(this.board, {
-            y: this.board.innerBottom - 150
+            y: this.board.innerBottom
         });
 
         // Physics timing
@@ -479,11 +480,17 @@ class Game {
         // Reset per-shot stats for trail unlock tracking
         this._resetShotStats();
 
-        // Animate ball leaving magazine
+        // Ball leaving magazine (don't change cannonReady - magazine still reserves slot for ball in flight)
         const mag = this.magazines[this.currentPlayerIndex];
         if (mag) {
             mag.useShot();
         }
+
+        // Trigger cannon fire animation (recoil + spring back)
+        this.cannonFireAnim = {
+            startTime: performance.now(),
+            duration: 250  // ms
+        };
 
         const b = new Ball(this.cannon.x, this.cannon.y);
         b.hiddenUntilExit = true;
@@ -1054,9 +1061,8 @@ class Game {
             isFreeBall: true
         });
 
-        // Give ball back - decrement shotsTaken (will be re-incremented in _finishShot)
-        // Net effect: this shot doesn't count against the player
-        this.shotsTaken[this.currentPlayerIndex] = Math.max(0, this.shotsTaken[this.currentPlayerIndex] - 1);
+        // Mark that we earned a free ball - _finishShot will NOT increment shotsTaken
+        this.freeBallEarned = true;
 
         // Play satisfying kerplunk sound
         try {
@@ -1161,7 +1167,12 @@ class Game {
         this._checkTrailUnlocks();
 
         this.combo = 0;
-        this.shotsTaken[this.currentPlayerIndex] += 1;
+
+        // Only increment shotsTaken if we didn't earn a free ball
+        if (!this.freeBallEarned) {
+            this.shotsTaken[this.currentPlayerIndex] += 1;
+        }
+        this.freeBallEarned = false; // Reset flag
 
         // Update magazine for current player
         if (this.magazines[this.currentPlayerIndex]) {
@@ -1226,9 +1237,8 @@ class Game {
 
     _showMatchResult(orangeCleared = false) {
         const modal = document.getElementById('round-modal');
-        const textEl = document.getElementById('round-modal-text');
         const ok = document.getElementById('round-modal-ok');
-        if (!modal || !textEl || !ok) return;
+        if (!modal || !ok) return;
         const p1 = this.players[0].score;
         const p2 = this.players[1].score;
 
@@ -1244,29 +1254,46 @@ class Game {
             this._checkTrailUnlocks();
         }
 
-        let msg;
+        // Determine result message
+        let title;
         if (orangeCleared) {
-            // Peggle-style win - all orange pegs cleared
-            if (p1 > p2) {
-                msg = 'EXTREME FEVER! P1 wins';
-            } else if (p2 > p1) {
-                msg = 'EXTREME FEVER! P2 wins';
-            } else {
-                msg = 'EXTREME FEVER! Tie game';
-            }
+            title = 'FEVER COMPLETE!';
         } else {
-            // Regular end - out of balls
-            if (p1 > p2) msg = 'Player 1 wins';
-            else if (p2 > p1) msg = 'Player 2 wins';
-            else msg = 'Tie game';
+            if (p1 > p2) title = 'Player 1 Wins!';
+            else if (p2 > p1) title = 'Player 2 Wins!';
+            else title = 'Tie Game!';
         }
 
-        textEl.textContent = `${msg} (${p1} - ${p2})`;
+        // Update modal with results
+        const nextLevel = ((this.currentLevelIndex + 1) % this.levels.length) + 1;
+        if (typeof window.updateModalContent === 'function') {
+            window.updateModalContent(nextLevel, title, true);
+        }
+
+        // Update objectives to show scores
+        const ballsEl = document.getElementById('modal-balls');
+        if (ballsEl) {
+            ballsEl.textContent = `Score: ${Math.max(p1, p2).toLocaleString()}`;
+        }
+
+        // Update first objective to show result
+        const objectives = document.querySelectorAll('.objective-text');
+        if (objectives[0]) {
+            objectives[0].textContent = orangeCleared ? 'All targets cleared!' : 'Out of balls';
+        }
+
         modal.classList.remove('hidden');
         ok.onclick = () => {
             modal.classList.add('hidden');
             this.advanceLevel();
             this.resetMatch();
+            // Update modal back to play mode for next round
+            if (typeof window.updateModalContent === 'function') {
+                window.updateModalContent(this.currentLevelIndex + 1, 'Ready to Play!', false);
+            }
+            // Reset objectives text
+            if (objectives[0]) objectives[0].textContent = 'Clear all orange pegs';
+            if (ballsEl) ballsEl.textContent = `${this.shotsPerPlayer} balls to use`;
             // Start magazine loading animation after modal is dismissed
             this.startMagazineAnimation();
         };
@@ -1278,6 +1305,7 @@ class Game {
         this.shotsTaken = [0, 0];
         this.matchOver = false;
         this.combo = 0;
+        this.freeBallEarned = false;
         this.slowMoUntil = 0;
         this.state = CONFIG.STATES.IDLE;
         this.balls = [];

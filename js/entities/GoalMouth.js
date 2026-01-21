@@ -13,6 +13,10 @@ class GoalMouth {
         this.x = innerLeft + (innerRight - innerLeft - width) / 2;
         this.speed = opts.speed || 1.0;
         this.direction = 1;
+
+        // Easing configuration - distance from wall to start slowing down
+        this.easeDistance = opts.easeDistance || 40;
+        this.easeAmount = opts.easeAmount || 0.25;  // How much to slow (0 = none, 1 = full stop)
     }
 
     setSpeed(speed) {
@@ -21,12 +25,36 @@ class GoalMouth {
         }
     }
 
+    setEaseDistance(dist) {
+        if (typeof dist === 'number' && !Number.isNaN(dist)) {
+            this.easeDistance = Math.max(0, dist);
+        }
+    }
+
     update(dt, board) {
         const innerLeft = board.innerLeft;
         const innerRight = board.innerRight;
         const minX = innerLeft + 20;
         const maxX = innerRight - this.width - 20;
-        this.x += this.direction * this.speed * dt * 120;
+
+        // Calculate distance from nearest wall
+        const distFromLeft = this.x - minX;
+        const distFromRight = maxX - this.x;
+        const distFromNearestWall = Math.min(distFromLeft, distFromRight);
+
+        // Apply subtle easing near walls (both approaching AND leaving)
+        let speedMult = 1;
+        if (this.easeDistance > 0 && distFromNearestWall < this.easeDistance) {
+            // Subtle ease: only reduce speed slightly near walls
+            const t = distFromNearestWall / this.easeDistance;
+            const easeCurve = Math.sin(t * Math.PI / 2);  // 0 at wall, 1 at easeDistance
+            // Interpolate between (1 - easeAmount) and 1 based on curve
+            speedMult = (1 - this.easeAmount) + this.easeAmount * easeCurve;
+        }
+
+        this.x += this.direction * this.speed * speedMult * dt * 120;
+
+        // Bounce off walls
         if (this.x <= minX) {
             this.x = minX;
             this.direction = 1;

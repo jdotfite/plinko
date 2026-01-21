@@ -182,16 +182,41 @@
     <!-- Match modal -->
     <div id="round-modal" class="round-modal hidden" role="dialog" aria-modal="true">
         <div class="round-modal-content">
-            <div class="modal-badge" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M12 2l2.7 5.47L20.6 8l-4.3 3.73L17.4 18 12 14.8 6.6 18l1.1-6.27L3.4 8l5.9-.53L12 2z" fill="#fff" opacity="0.96"/>
-                </svg>
-                <strong style="font-size:13px;">READY</strong>
+            <!-- Large medallion overlapping top -->
+            <div class="modal-medallion" aria-hidden="true">
+                <div class="medallion-inner">
+                    <span class="medallion-letter">P</span>
+                </div>
+                <div class="medallion-ring"></div>
             </div>
-            <div id="round-modal-text">Ready</div>
-            <div class="round-modal-actions">
-                <button id="round-modal-ok">OK</button>
+
+            <!-- Decorative stars -->
+            <div class="modal-stars" aria-hidden="true">
+                <svg class="star star-left" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7-6.3-4.6L5.7 21l2.3-7-6-4.6h7.6z"/></svg>
+                <svg class="star star-center" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7-6.3-4.6L5.7 21l2.3-7-6-4.6h7.6z"/></svg>
+                <svg class="star star-right" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7-6.3-4.6L5.7 21l2.3-7-6-4.6h7.6z"/></svg>
             </div>
+
+            <!-- Level title -->
+            <div class="modal-level" id="modal-level">Level 1</div>
+            <div class="modal-title" id="round-modal-text">Ready to Play!</div>
+
+            <!-- Objectives -->
+            <div class="modal-objectives">
+                <div class="objective">
+                    <span class="objective-icon target-icon"></span>
+                    <span class="objective-text">Clear all orange pegs</span>
+                </div>
+                <div class="objective">
+                    <span class="objective-icon ball-icon"></span>
+                    <span class="objective-text" id="modal-balls">10 balls to use</span>
+                </div>
+            </div>
+
+            <!-- Play button -->
+            <button class="modal-play-btn" id="round-modal-ok">
+                <span>PLAY</span>
+            </button>
         </div>
     </div>
 
@@ -199,27 +224,27 @@
     <div id="confetti-container" aria-hidden="true"></div>
 
     <!-- Load scripts in order -->
-    <script src="js/config.js?v=20"></script>
-    <script src="js/utils.js?v=20"></script>
-    <script src="js/core/ThemeManager.js?v=20"></script>
-    <script src="js/physics/Vector.js?v=20"></script>
-    <script src="js/physics/Collision.js?v=20"></script>
-    <script src="js/entities/Ball.js?v=20"></script>
-    <script src="js/entities/Peg.js?v=20"></script>
-    <script src="js/entities/Slot.js?v=20"></script>
-    <script src="js/entities/GoalMouth.js?v=20"></script>
-    <script src="js/entities/FeverSlots.js?v=20"></script>
-    <script src="js/entities/Magazine.js?v=20"></script>
-    <script src="js/layouts/Layout.js?v=20"></script>
-    <script src="js/layouts/Layouts.js?v=20"></script>
-    <script src="js/trails/TrailSystem.js?v=20"></script>
-    <script src="js/entities/Board.js?v=20"></script>
-    <script src="js/core/Renderer.js?v=20"></script>
-    <script src="js/core/InputHandler.js?v=20"></script>
-    <script src="js/core/Game.js?v=20"></script>
-    <script src="js/sound.js?v=20"></script>
-    <script src="js/admin.js?v=20"></script>
-    <script src="js/particles.js?v=20"></script>
-    <script src="js/main.js?v=20"></script>
+    <script src="js/config.js?v=21"></script>
+    <script src="js/utils.js?v=21"></script>
+    <script src="js/core/ThemeManager.js?v=21"></script>
+    <script src="js/physics/Vector.js?v=21"></script>
+    <script src="js/physics/Collision.js?v=21"></script>
+    <script src="js/entities/Ball.js?v=21"></script>
+    <script src="js/entities/Peg.js?v=21"></script>
+    <script src="js/entities/Slot.js?v=21"></script>
+    <script src="js/entities/GoalMouth.js?v=21"></script>
+    <script src="js/entities/FeverSlots.js?v=21"></script>
+    <script src="js/entities/Magazine.js?v=21"></script>
+    <script src="js/layouts/Layout.js?v=21"></script>
+    <script src="js/layouts/Layouts.js?v=21"></script>
+    <script src="js/trails/TrailSystem.js?v=21"></script>
+    <script src="js/entities/Board.js?v=21"></script>
+    <script src="js/core/Renderer.js?v=21"></script>
+    <script src="js/core/InputHandler.js?v=21"></script>
+    <script src="js/core/Game.js?v=21"></script>
+    <script src="js/sound.js?v=21"></script>
+    <script src="js/admin.js?v=21"></script>
+    <script src="js/particles.js?v=21"></script>
+    <script src="js/main.js?v=21"></script>
 </body>
 </html>
