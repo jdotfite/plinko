@@ -38,25 +38,16 @@ html, body {
     display: block;
 }
 
-/* Admin gear + panel */
+/* Admin gear - HIDDEN (replaced by bottom panel gear) */
 #admin-gear {
-    position: absolute;
-    left: 12px;
-    top: 12px;
-    width: 64px;
-    height: 44px;
-    border-radius: 8px;
-    border: none;
-    background: rgba(0,0,0,0.06);
-    color: #111;
-    font-size: 12px;
-    letter-spacing: 0.8px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    cursor: pointer;
+    display: none;
+}
+
+/* Old P1/P2 HUD panels - HIDDEN (scores moved to bottom panel) */
+#hud-p1,
+#hud-p2,
+#hud-center {
+    display: none !important;
 }
 
 #admin-overlay {
@@ -470,3 +461,303 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 .trail-preview.gold { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); box-shadow: 0 0 8px rgba(255,215,0,0.4); }
 .trail-preview.plasma { background: linear-gradient(135deg, #8A2BE2 0%, #FF00FF 50%, #00FFFF 100%); }
 .trail-preview.confetti { background: linear-gradient(45deg, #FF6B6B 25%, #4ECDC4 25%, #4ECDC4 50%, #FFE66D 50%, #FFE66D 75%, #95E1D3 75%); }
+
+/* =============================================
+   Bottom UI Panel - Arcade Minimal Design
+   ============================================= */
+
+#bottom-ui-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 1080px;
+    z-index: 100;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    /* JS applies transform: scale() and positions this element */
+    transform-origin: bottom left;
+}
+
+/* Hide the separate curve element */
+.bottom-ui-curve {
+    display: none;
+}
+
+/* Main content area - matches lighter frame (#F8F8F8) */
+.bottom-ui-content {
+    background: linear-gradient(180deg, #FCFCFC 0%, #F6F6F6 50%, #F0F0F0 100%);
+    padding: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    min-height: 80px;
+    position: relative;
+    pointer-events: auto;
+    border-radius: 24px 24px 0 0;
+    box-shadow:
+        0 -1px 0 rgba(255,255,255,0.9),
+        0 -4px 20px rgba(0,0,0,0.08),
+        inset 0 1px 0 rgba(255,255,255,1);
+}
+
+/* Subtle top edge highlight */
+.bottom-ui-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 20%, rgba(255,255,255,0.8) 80%, transparent 100%);
+    pointer-events: none;
+}
+
+/* Player score sections - clean inset panels */
+.bottom-player {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px 14px;
+    position: relative;
+    margin: 10px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8F8F8 100%);
+    border-radius: 16px;
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.04),
+        inset 0 0 0 1px rgba(0,0,0,0.04),
+        0 1px 2px rgba(255,255,255,0.8);
+    transition: all 0.2s ease;
+}
+
+.bottom-player.p1 {
+    margin-left: 12px;
+    margin-right: 4px;
+}
+
+.bottom-player.p2 {
+    margin-right: 12px;
+    margin-left: 4px;
+}
+
+/* Active player - subtle highlight */
+.bottom-player.active {
+    background: linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 100%);
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.02),
+        inset 0 0 0 1.5px rgba(0,0,0,0.12),
+        0 2px 8px rgba(0,0,0,0.06);
+}
+
+.bottom-player.active .player-badge {
+    color: #000;
+}
+
+.player-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 4px;
+    transition: color 0.2s ease;
+}
+
+.player-score-value {
+    font-size: 32px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: #000;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.player-balls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: #666;
+}
+
+.ball-icon {
+    width: 8px;
+    height: 8px;
+    background: #000;
+    border-radius: 50%;
+    opacity: 0.4;
+}
+
+/* Center stats area */
+.bottom-center {
+    flex: 1.4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 10px 20px;
+}
+
+.center-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.center-stat .stat-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #999;
+}
+
+/* Orange peg stat - minimal B&W treatment */
+.orange-stat {
+    background: #000;
+    padding: 10px 20px;
+    border-radius: 20px;
+}
+
+.orange-stat .stat-label {
+    color: rgba(255,255,255,0.6);
+}
+
+.orange-stat .stat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Target icon - simple circle outline */
+.orange-peg-icon {
+    width: 12px;
+    height: 12px;
+    background: transparent;
+    border: 2px solid #fff;
+    border-radius: 50%;
+}
+
+.orange-stat .stat-value {
+    font-size: 24px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+
+/* Combo/multiplier stat */
+.combo-stat {
+    padding: 6px 14px;
+    background: rgba(0,0,0,0.04);
+    border-radius: 12px;
+}
+
+.combo-stat .stat-value {
+    font-size: 16px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: #333;
+}
+
+/* Settings gear button */
+.bottom-gear {
+    position: absolute;
+    right: 14px;
+    bottom: 50%;
+    transform: translateY(50%);
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #999;
+    transition: all 0.15s ease;
+    pointer-events: auto;
+}
+
+.bottom-gear:hover {
+    background: rgba(0,0,0,0.06);
+    color: #000;
+}
+
+.bottom-gear svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Power-up selection in admin panel */
+.powerup-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+}
+.powerup-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.powerup-section-header h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+.powerup-section-header .powerup-count {
+    font-size: 11px;
+    color: #888;
+    font-weight: 600;
+}
+.powerup-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.powerup-item {
+    background: #f7f7f7;
+    border-radius: 10px;
+    padding: 10px 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+    opacity: 0.5;
+}
+.powerup-item:hover {
+    background: #f0f0f0;
+}
+.powerup-item.enabled {
+    border-color: #111;
+    background: #fff;
+    opacity: 1;
+}
+.powerup-item .powerup-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.powerup-item .powerup-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

@@ -10,6 +10,21 @@ class Magazine {
         this.playerId = playerId;
         this.total = 10;
         this.remaining = 10;
+
+        // Ball return animation (when ball goes into goal mouth)
+        this.returnBall = null;       // { y, targetY, startTime }
+
+        // Startup animation phases:
+        // 1. 'dropping' - balls drop into magazine with clacking sounds
+        // 2. 'settling' - short pause after balls settle
+        // 3. 'cannon_loading' - bottom ball feeds into cannon
+        // 4. null - animation complete
+        this.loadingAnimation = null;
+        this.ballOffsets = [];        // Y offset for each ball during animation
+        this.ballsDropped = 0;        // How many balls have dropped in
+        this.cannonBallOffset = 0;    // Y offset for ball loading into cannon
+        this.initialized = false;     // True once loading animation has started
+        this.cannonReady = false;     // True once ball is loaded in cannon
     }
 
     setTotal(count) {
@@ -22,30 +37,207 @@ class Magazine {
     }
 
     useShot() {
-        if (this.remaining > 0) {
-            this.remaining--;
-            return true;
-        }
-        return false;
+        // Just return if we have remaining shots - no animation here
+        // Animation only happens when ball returns from goal mouth
+        return this.remaining > 0;
+    }
+
+    /**
+     * Animate a ball returning from the bottom (free ball reward)
+     */
+    returnBallAnimation() {
+        const cfg = CONFIG.MAGAZINE;
+        // Target is one slot below current remaining (since remaining will be incremented)
+        const targetY = this.y + this.remaining * cfg.spacing;
+        this.returnBall = {
+            y: this.y + this.total * cfg.spacing + 60, // Start below magazine
+            targetY: targetY,
+            startTime: performance.now()
+        };
+    }
+
+    /**
+     * Called when ball return animation completes
+     */
+    completeReturn() {
+        // Don't modify remaining - that's handled by setRemaining based on shotsTaken
+        this.returnBall = null;
     }
 
     reset() {
         this.remaining = this.total;
+        this.returnBall = null;
+        this.loadingAnimation = null;
+        this.ballOffsets = [];
+        this.ballsDropped = 0;
+        this.cannonBallOffset = 0;
+        this.initialized = false;
+        this.cannonReady = false;
     }
 
-    render(ctx, scale) {
+    /**
+     * Start the loading animation (three phases: rise, settle, cannon load)
+     */
+    startLoadingAnimation() {
+        this.initialized = true;
+        this.cannonReady = false;
+        this.ballsDropped = 0;
+        this.cannonBallOffset = 0;
+        this.loadingAnimation = {
+            startTime: performance.now(),
+            phase: 'rising',
+            lastDropTime: 0,
+            lastRiseIndex: -1
+        };
+        // Initialize offsets - all balls start below their target position (rising up)
+        this.ballOffsets = [];
+        for (let i = 0; i < this.total; i++) {
+            // All balls start way below (will rise up one by one)
+            this.ballOffsets.push(300);
+        }
+    }
+
+    update() {
+        // Update loading animation (three phases)
+        if (this.loadingAnimation) {
+            const now = performance.now();
+            const elapsed = now - this.loadingAnimation.startTime;
+            const phase = this.loadingAnimation.phase;
+
+            if (phase === 'rising') {
+                // Phase 1: Balls rise into magazine one by one from the bottom
+                const riseInterval = 60; // ms between each ball rising
+                const riseDuration = 200; // ms for each ball to rise into place
+
+                // Determine how many balls should have started rising (from bottom up)
+                const ballsToStart = Math.min(this.total, Math.floor(elapsed / riseInterval) + 1);
+
+                let allRisen = true;
+                for (let i = 0; i < this.total; i++) {
+                    // Reverse order: bottom ball (index total-1) rises first
+                    const riseOrder = (this.total - 1) - i;
+
+                    if (riseOrder < ballsToStart) {
+                        // This ball has started rising
+                        const ballStartTime = riseOrder * riseInterval;
+                        const ballElapsed = elapsed - ballStartTime;
+                        const progress = Math.min(1, ballElapsed / riseDuration);
+
+                        // Ease out for smooth deceleration
+                        const eased = 1 - Math.pow(1 - progress, 2);
+                        // Small bounce at the end (upward overshoot)
+                        const bounce = progress >= 0.8 ? Math.sin((progress - 0.8) * Math.PI * 5) * -3 * (1 - progress) : 0;
+
+                        this.ballOffsets[i] = 300 * (1 - eased) + bounce;
+
+                        // Play clack sound when ball settles (crosses threshold)
+                        if (progress >= 0.85 && this.loadingAnimation.lastRiseIndex < riseOrder) {
+                            this.loadingAnimation.lastRiseIndex = riseOrder;
+                            this._playClackSound(this.total - 1 - riseOrder);
+                        }
+
+                        if (progress < 1) allRisen = false;
+                    } else {
+                        allRisen = false;
+                    }
+                }
+
+                // Move to settling phase when all balls have risen
+                if (allRisen) {
+                    this.loadingAnimation = {
+                        startTime: now,
+                        phase: 'settling'
+                    };
+                    this._playSettleSound();
+                }
+            } else if (phase === 'settling') {
+                // Phase 2: Short pause while balls settle
+                const settleDuration = 200; // ms
+
+                // Clear any remaining offsets
+                for (let i = 0; i < this.ballOffsets.length; i++) {
+                    this.ballOffsets[i] = 0;
+                }
+
+                if (elapsed >= settleDuration) {
+                    // Move to cannon loading phase
+                    this.loadingAnimation = {
+                        startTime: now,
+                        phase: 'cannon_loading'
+                    };
+                }
+            } else if (phase === 'cannon_loading') {
+                // Phase 3: All balls slide up one slot, bottom slot becomes empty
+                const loadDuration = 300; // ms
+                const progress = Math.min(1, elapsed / loadDuration);
+
+                // Ease out for smooth deceleration
+                const eased = 1 - Math.pow(1 - progress, 2);
+
+                // All balls shift up by one slot spacing
+                const cfg = CONFIG.MAGAZINE;
+                const shiftAmount = -cfg.spacing * eased; // Negative = upward
+
+                for (let i = 0; i < this.ballOffsets.length; i++) {
+                    this.ballOffsets[i] = shiftAmount;
+                }
+
+                // Store progress for render (used to know we're in this phase)
+                this.cannonBallOffset = progress;
+
+                // Play cannon load sound at start
+                if (elapsed < 20) {
+                    this._playCannonLoadSound();
+                }
+
+                if (progress >= 1) {
+                    // Animation complete
+                    this.loadingAnimation = null;
+                    this.ballOffsets = [];
+                    this.cannonBallOffset = 0;
+                    this.cannonReady = true;
+                }
+            }
+        }
+
+        // Update return ball animation (ball rising from bottom)
+        if (this.returnBall) {
+            const elapsed = performance.now() - this.returnBall.startTime;
+            const duration = 500; // ms for full animation
+            const progress = Math.min(1, elapsed / duration);
+
+            // Ease out back (slight overshoot for bounce effect)
+            const c1 = 1.70158;
+            const c3 = c1 + 1;
+            const eased = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+
+            // Interpolate from start to target
+            const startY = this.y + this.total * CONFIG.MAGAZINE.spacing + 60;
+            this.returnBall.y = startY + (this.returnBall.targetY - startY) * eased;
+
+            // Complete when done
+            if (progress >= 1) {
+                this.completeReturn();
+            }
+        }
+    }
+
+    render(ctx, scale, cannonLoaded = false) {
+        // Update animation state
+        this.update();
+
         const cfg = CONFIG.MAGAZINE;
         const ballRadius = cfg.ballRadius * scale;
         const spacing = cfg.spacing * scale;
         const x = this.x * scale;
         const startY = this.y * scale;
 
-        // Slot dimensions
-        const slotWidth = ballRadius * 2.6;
-        const slotHeight = (this.total - 1) * spacing + ballRadius * 2 + 10 * scale;
+        // Slot dimensions - tighter fit around balls
+        const slotWidth = ballRadius * 2.3;
+        const slotHeight = (this.total - 1) * spacing + ballRadius * 2 + 8 * scale;
         const slotRadius = slotWidth / 2; // Rounded ends (stadium shape)
         const slotX = x - slotWidth / 2;
-        const slotY = startY - ballRadius - 5 * scale;
+        const slotY = startY - ballRadius - 4 * scale;
 
         ctx.save();
 
@@ -55,67 +247,82 @@ class Magazine {
         ctx.roundRect(slotX, slotY, slotWidth, slotHeight, slotRadius);
         ctx.fill();
 
-        // === COINS/BALLS FIRST (matching the game ball style) ===
-        // Balls removed from bottom, so remaining balls fill from top down
-        for (let i = 0; i < this.total; i++) {
-            const isRemaining = i < this.remaining;
-            const yPos = startY + i * spacing;
+        // Clip to slot area so balls don't render outside
+        ctx.beginPath();
+        ctx.roundRect(slotX, slotY, slotWidth, slotHeight, slotRadius);
+        ctx.clip();
 
-            if (isRemaining) {
-                // Match the Ball entity render style exactly
-                // Shadow
-                ctx.shadowColor = 'rgba(0,0,0,0.12)';
-                ctx.shadowBlur = 6 * scale;
-                ctx.shadowOffsetY = 4 * scale;
+        // === REMAINING BALLS ===
+        // Don't render balls until animation has been triggered
+        if (this.initialized) {
+            const isCannonLoading = this.loadingAnimation && this.loadingAnimation.phase === 'cannon_loading';
+            // Skip bottom slot if cannon is loaded (ball slid up and out)
+            const reserveForCannon = cannonLoaded || this.cannonReady;
 
-                // Outer ring (border) - matches CONFIG.COLORS.ballBorder
-                ctx.beginPath();
-                ctx.arc(x, yPos, ballRadius + 2 * scale, 0, Math.PI * 2);
-                ctx.fillStyle = CONFIG.COLORS.ballBorder;
-                ctx.fill();
+            for (let i = 0; i < this.remaining; i++) {
+                // Skip bottom slot after cannon is loaded (that slot is now empty)
+                if (reserveForCannon && i === this.remaining - 1) {
+                    continue;
+                }
 
-                // Clear shadow for inner ball
-                ctx.shadowColor = 'transparent';
+                // Apply animation offset
+                const offset = (this.ballOffsets[i] || 0) * scale;
+                const yPos = startY + i * spacing + offset;
 
-                // Inner ball - matches CONFIG.COLORS.ballFill
-                ctx.beginPath();
-                ctx.arc(x, yPos, ballRadius, 0, Math.PI * 2);
-                ctx.fillStyle = CONFIG.COLORS.ballFill;
-                ctx.fill();
+                // During cannon loading, fade out the top ball as it slides into cannon
+                if (isCannonLoading && i === 0) {
+                    ctx.save();
+                    ctx.globalAlpha = 1 - this.cannonBallOffset;
+                    this._renderBall(ctx, x, yPos, ballRadius, scale);
+                    ctx.restore();
+                } else {
+                    this._renderBall(ctx, x, yPos, ballRadius, scale);
+                }
             }
         }
 
-        // === SHADOW OVERLAY ON TOP OF COINS ===
-        // Left edge shadow
-        const leftShadow = ctx.createLinearGradient(slotX, slotY, slotX + slotWidth * 0.4, slotY);
-        leftShadow.addColorStop(0, 'rgba(0,0,0,0.15)');
+        // === RETURN BALL ANIMATION (rising from bottom) ===
+        if (this.returnBall) {
+            const returnY = this.returnBall.y * scale;
+            this._renderBall(ctx, x, returnY, ballRadius, scale, true);
+        }
+
+        ctx.restore();
+
+        // Draw slot overlay effects (outside clip)
+        ctx.save();
+
+        // === SHADOW OVERLAY ON TOP OF COINS (tighter inner glow) ===
+        // Left edge shadow - narrower
+        const leftShadow = ctx.createLinearGradient(slotX, slotY, slotX + slotWidth * 0.25, slotY);
+        leftShadow.addColorStop(0, 'rgba(0,0,0,0.12)');
         leftShadow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = leftShadow;
         ctx.beginPath();
         ctx.roundRect(slotX, slotY, slotWidth, slotHeight, slotRadius);
         ctx.fill();
 
-        // Right edge shadow
-        const rightShadow = ctx.createLinearGradient(slotX + slotWidth, slotY, slotX + slotWidth * 0.6, slotY);
-        rightShadow.addColorStop(0, 'rgba(0,0,0,0.15)');
+        // Right edge shadow - narrower
+        const rightShadow = ctx.createLinearGradient(slotX + slotWidth, slotY, slotX + slotWidth * 0.75, slotY);
+        rightShadow.addColorStop(0, 'rgba(0,0,0,0.12)');
         rightShadow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = rightShadow;
         ctx.beginPath();
         ctx.roundRect(slotX, slotY, slotWidth, slotHeight, slotRadius);
         ctx.fill();
 
-        // Top inner shadow (depth at top)
-        const topShadow = ctx.createLinearGradient(slotX, slotY, slotX, slotY + 30 * scale);
-        topShadow.addColorStop(0, 'rgba(0,0,0,0.12)');
+        // Top inner shadow (depth at top) - shorter
+        const topShadow = ctx.createLinearGradient(slotX, slotY, slotX, slotY + 18 * scale);
+        topShadow.addColorStop(0, 'rgba(0,0,0,0.1)');
         topShadow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = topShadow;
         ctx.beginPath();
         ctx.roundRect(slotX, slotY, slotWidth, slotHeight, slotRadius);
         ctx.fill();
 
-        // Bottom inner shadow
-        const bottomShadow = ctx.createLinearGradient(slotX, slotY + slotHeight, slotX, slotY + slotHeight - 25 * scale);
-        bottomShadow.addColorStop(0, 'rgba(0,0,0,0.1)');
+        // Bottom inner shadow - shorter
+        const bottomShadow = ctx.createLinearGradient(slotX, slotY + slotHeight, slotX, slotY + slotHeight - 15 * scale);
+        bottomShadow.addColorStop(0, 'rgba(0,0,0,0.08)');
         bottomShadow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = bottomShadow;
         ctx.beginPath();
@@ -129,44 +336,80 @@ class Magazine {
         ctx.roundRect(slotX, slotY, slotWidth, slotHeight, slotRadius);
         ctx.stroke();
 
-        // === COIN COUNT BADGE ===
-        const countY = slotY + slotHeight + 12 * scale;
-        const countText = String(this.remaining);
-
-        // Badge background (small recessed pill)
-        const badgeWidth = 32 * scale;
-        const badgeHeight = 20 * scale;
-        const badgeX = x - badgeWidth / 2;
-        const badgeY = countY - badgeHeight / 2;
-
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, badgeHeight / 2);
-        ctx.fill();
-
-        // Inner shadow for recessed look
-        const badgeShadow = ctx.createLinearGradient(badgeX, badgeY, badgeX, badgeY + badgeHeight * 0.5);
-        badgeShadow.addColorStop(0, 'rgba(0,0,0,0.06)');
-        badgeShadow.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = badgeShadow;
-        ctx.beginPath();
-        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, badgeHeight / 2);
-        ctx.fill();
-
-        // Border
-        ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-        ctx.lineWidth = 1 * scale;
-        ctx.beginPath();
-        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, badgeHeight / 2);
-        ctx.stroke();
-
-        // Count text
-        ctx.fillStyle = '#333';
-        ctx.font = `bold ${12 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(countText, x, countY);
+        // Ball count badge removed - now displayed in bottom UI panel
 
         ctx.restore();
+    }
+
+    /**
+     * Play clack sound when ball drops into place
+     */
+    _playClackSound(index) {
+        try {
+            if (window.audioManager && typeof window.audioManager.playBallClack === 'function') {
+                // Pitch varies slightly for each ball (higher pitch for later balls)
+                const pitch = 0.9 + (index / this.total) * 0.3;
+                window.audioManager.playBallClack({ pitch });
+            }
+        } catch (e) {}
+    }
+
+    /**
+     * Play settle sound when all balls are in magazine
+     */
+    _playSettleSound() {
+        try {
+            if (window.audioManager && typeof window.audioManager.playMagazineSettle === 'function') {
+                window.audioManager.playMagazineSettle();
+            }
+        } catch (e) {}
+    }
+
+    /**
+     * Play sound when ball loads into cannon
+     */
+    _playCannonLoadSound() {
+        try {
+            if (window.audioManager && typeof window.audioManager.playCannonLoad === 'function') {
+                window.audioManager.playCannonLoad();
+            }
+        } catch (e) {}
+    }
+
+    /**
+     * Helper to render a single ball in the magazine
+     */
+    _renderBall(ctx, x, y, radius, scale, isReturning = false) {
+        // Shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.12)';
+        ctx.shadowBlur = 6 * scale;
+        ctx.shadowOffsetY = 4 * scale;
+
+        // Outer ring (border)
+        ctx.beginPath();
+        ctx.arc(x, y, radius + 2 * scale, 0, Math.PI * 2);
+        ctx.fillStyle = CONFIG.COLORS.ballBorder;
+        ctx.fill();
+
+        // Clear shadow for inner ball
+        ctx.shadowColor = 'transparent';
+
+        // Inner ball
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = CONFIG.COLORS.ballFill;
+        ctx.fill();
+
+        // Glow effect for returning ball
+        if (isReturning) {
+            ctx.shadowColor = '#00FF55';
+            ctx.shadowBlur = 15 * scale;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + 1 * scale, 0, Math.PI * 2);
+            ctx.strokeStyle = '#00FF55';
+            ctx.lineWidth = 2 * scale;
+            ctx.stroke();
+            ctx.shadowColor = 'transparent';
+        }
     }
 }

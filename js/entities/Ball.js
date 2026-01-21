@@ -130,28 +130,177 @@ class Ball {
 
     render(ctx, scale) {
         if (this.hiddenUntilExit) return;
+        const now = performance.now();
+
         try {
             const type = window.currentTrailType || 'off';
-            if (this._trail && this._trail.length > 1 && type !== 'off') this._renderTrail(ctx, scale, type);
+            // Force specific trails for power-up modes
+            if (this.isFireball) {
+                if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'fire');
+            } else if (this.isThunder) {
+                if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'lightning');
+            } else if (this.isGhost) {
+                if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'smoke');
+            } else if (this.isMagnet) {
+                if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'neon');
+            } else if (this._trail && this._trail.length > 1 && type !== 'off') {
+                this._renderTrail(ctx, scale, type);
+            }
         } catch (e) {}
 
         ctx.save();
         const x = this.x * scale, y = this.y * scale, r = this.radius * scale;
 
-        ctx.shadowColor = 'rgba(0,0,0,0.12)';
-        ctx.shadowBlur = 10 * scale;
-        ctx.shadowOffsetY = 8 * scale;
-
-        ctx.beginPath();
-        ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
-        ctx.fillStyle = CONFIG.COLORS.ballBorder;
-        ctx.fill();
-
-        ctx.shadowColor = 'transparent';
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fillStyle = CONFIG.COLORS.ballFill;
-        ctx.fill();
+        // Fireball mode - flaming ball
+        if (this.isFireball) {
+            const flicker = Math.sin(now * 0.02) * 0.15 + 0.85;
+            ctx.shadowColor = '#FF4500';
+            ctx.shadowBlur = 25 * scale * flicker;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 6 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF4500';
+            ctx.fill();
+            ctx.shadowBlur = 15 * scale;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 2 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF8C00';
+            ctx.fill();
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 10 * scale;
+            ctx.beginPath();
+            ctx.arc(x, y, r - 2 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFFACD';
+            ctx.fill();
+        }
+        // Ghost mode - transparent, ethereal
+        else if (this.isGhost) {
+            ctx.globalAlpha = 0.5 + Math.sin(now * 0.01) * 0.2;
+            ctx.shadowColor = '#9B59B6';
+            ctx.shadowBlur = 20 * scale;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(155, 89, 182, 0.5)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        // Thunder mode - electric blue
+        else if (this.isThunder) {
+            const pulse = Math.sin(now * 0.03) * 0.3 + 0.7;
+            ctx.shadowColor = '#00FFFF';
+            ctx.shadowBlur = 25 * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 5 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#00BFFF';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#00FFFF';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r * 0.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill();
+        }
+        // Magnet mode - pink magnetic glow
+        else if (this.isMagnet) {
+            const pulse = Math.sin(now * 0.02) * 0.2 + 0.8;
+            ctx.shadowColor = '#E91E63';
+            ctx.shadowBlur = 20 * scale * pulse;
+            // Magnetic field lines
+            ctx.strokeStyle = 'rgba(233, 30, 99, 0.4)';
+            ctx.lineWidth = 2 * scale;
+            for (let i = 0; i < 3; i++) {
+                const ringR = r + (10 + i * 8) * scale * pulse;
+                ctx.beginPath();
+                ctx.arc(x, y, ringR, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#E91E63';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF69B4';
+            ctx.fill();
+        }
+        // Bomb mode - explosive orange
+        else if (this.isBomb) {
+            const pulse = Math.sin(now * 0.025) * 0.15 + 0.85;
+            ctx.shadowColor = '#FF5722';
+            ctx.shadowBlur = 22 * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF5722';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#212121';
+            ctx.fill();
+            // Fuse spark
+            ctx.fillStyle = '#FFEB3B';
+            ctx.beginPath();
+            ctx.arc(x - r * 0.4, y - r * 0.6, 3 * scale * pulse, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Splitter mode - rainbow prism
+        else if (this.isSplitter) {
+            const hue = (now * 0.2) % 360;
+            ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+            ctx.shadowBlur = 18 * scale;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            const grad = ctx.createLinearGradient(x - r, y, x + r, y);
+            grad.addColorStop(0, `hsl(${hue}, 100%, 70%)`);
+            grad.addColorStop(0.5, '#FFFFFF');
+            grad.addColorStop(1, `hsl(${(hue + 180) % 360}, 100%, 70%)`);
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
+        // Spooky mode - purple ghost aura
+        else if (this.isSpooky && !this.spookyUsed) {
+            const pulse = Math.sin(now * 0.015) * 0.2 + 0.8;
+            ctx.shadowColor = '#9B59B6';
+            ctx.shadowBlur = 18 * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#8E44AD';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#D8BFD8';
+            ctx.fill();
+        }
+        // Normal ball
+        else {
+            ctx.shadowColor = 'rgba(0,0,0,0.12)';
+            ctx.shadowBlur = 10 * scale;
+            ctx.shadowOffsetY = 8 * scale;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.ballBorder;
+            ctx.fill();
+            ctx.shadowColor = 'transparent';
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.ballFill;
+            ctx.fill();
+        }
         ctx.restore();
     }
 

@@ -90,4 +90,29 @@ class Layout {
             peg.hitTime = 0;
         }
     }
+
+    /**
+     * Randomly assign green pegs (power-up pegs) from non-orange pegs
+     * @param {Array} pegs - Array of Peg objects
+     * @param {number} count - Number of green pegs to assign (default: 2)
+     */
+    static assignGreenPegs(pegs, count = 2) {
+        if (!pegs || !pegs.length) return;
+
+        // Filter to only blue pegs (not orange, not guide row)
+        const candidates = pegs.filter(p => !p.isGuideRow && p.pegType === 'blue');
+
+        // Shuffle using Fisher-Yates
+        const shuffled = [...candidates];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        // Assign green type to first 'count' pegs
+        const assignCount = Math.min(count, shuffled.length);
+        for (let i = 0; i < assignCount; i++) {
+            shuffled[i].pegType = 'green';
+        }
+    }
 }

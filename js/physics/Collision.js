@@ -87,12 +87,16 @@ const Collision = {
             collided = true;
             // Track wall bounce for style bonus
             ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
-            ball.lastWallHitTime = performance.now();
-            try {
-                if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                    window.audioManager.playWallHit();
-                }
-            } catch (e) {}
+            const now = performance.now();
+            // Debounce wall sound - minimum 80ms between hits
+            if (!ball.lastWallHitTime || now - ball.lastWallHitTime > 80) {
+                ball.lastWallHitTime = now;
+                try {
+                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                        window.audioManager.playWallHit();
+                    }
+                } catch (e) {}
+            }
         }
 
         // Right wall
@@ -102,12 +106,16 @@ const Collision = {
             collided = true;
             // Track wall bounce for style bonus
             ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
-            ball.lastWallHitTime = performance.now();
-            try {
-                if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                    window.audioManager.playWallHit();
-                }
-            } catch (e) {}
+            const now = performance.now();
+            // Debounce wall sound - minimum 80ms between hits
+            if (!ball.lastWallHitTime || now - ball.lastWallHitTime > 80) {
+                ball.lastWallHitTime = now;
+                try {
+                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                        window.audioManager.playWallHit();
+                    }
+                } catch (e) {}
+            }
         }
 
         // Chevron bump-outs
@@ -119,25 +127,29 @@ const Collision = {
                     collided = true;
                     // Track wall bounce for style bonus
                     ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
-                    ball.lastWallHitTime = performance.now();
-                    try {
-                        if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                            window.audioManager.playWallHit();
-                        }
-                    } catch (e) {}
+                    const now = performance.now();
+                    // Debounce wall sound - minimum 80ms between hits
+                    if (!ball.lastWallHitTime || now - ball.lastWallHitTime > 80) {
+                        ball.lastWallHitTime = now;
+                        try {
+                            if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
+                                window.audioManager.playWallHit();
+                            }
+                        } catch (e) {}
+                    }
                 }
             }
         }
         
-        // Slot dividers - these create the funnel effect
-        if (slotDividers && ball.y + bRadius > CONFIG.SLOTS.funnelStartY) {
-            for (const divider of slotDividers) {
-                if (this.ballToDivider(ball, divider)) {
-                    collided = true;
-                }
-            }
-        }
-        
+        // Slot dividers disabled - balls fall through now
+        // if (slotDividers && ball.y + bRadius > CONFIG.SLOTS.funnelStartY) {
+        //     for (const divider of slotDividers) {
+        //         if (this.ballToDivider(ball, divider)) {
+        //             collided = true;
+        //         }
+        //     }
+        // }
+
         return collided;
     },
 
@@ -251,11 +263,10 @@ const Collision = {
     
     /**
      * Check and handle collision with goal mouth rim (sides bounce the ball)
-     * Returns true if ball bounced off rim
+     * Returns true if ball bounced off rim - basketball rim feel!
      */
     ballToGoalMouthRim(ball, mouth) {
         if (!mouth) return false;
-        const physics = CONFIG.PHYSICS;
         const bRadius = (typeof ball.hitRadius === 'number') ? ball.hitRadius : ball.radius;
 
         // Goal mouth dimensions
@@ -265,31 +276,64 @@ const Collision = {
         const mouthCenterX = mouth.x + mouth.width / 2;
 
         // Rim thickness (matches GoalMouth render)
-        const rimThickness = 8;
-        const innerHoleRadius = (mouth.width / 2) - rimThickness * 1.2;
+        const rimThickness = 12;
+        const innerHoleRadius = (mouth.width / 2) - rimThickness;
 
-        // Only check if ball is near the mouth vertically
-        if (ball.y + bRadius < mouthTop - 10 || ball.y - bRadius > mouthTop + 30) {
+        // Only check if ball is near the mouth vertically (extended range for taller tube)
+        if (ball.y + bRadius < mouthTop - 15 || ball.y - bRadius > mouthTop + 45) {
             return false;
         }
 
-        // Check if ball is hitting the left rim
+        // Check if ball is hitting the rim area
         const distFromCenter = ball.x - mouthCenterX;
         const absDistFromCenter = Math.abs(distFromCenter);
 
         // Ball is in the rim zone (between inner hole edge and outer edge)
-        if (absDistFromCenter > innerHoleRadius - bRadius &&
+        if (absDistFromCenter > innerHoleRadius - bRadius * 0.5 &&
             absDistFromCenter < (mouth.width / 2) + bRadius &&
-            ball.y + bRadius > mouthTop) {
+            ball.y + bRadius > mouthTop - 5) {
+
+            // Calculate collision response - basketball rim feel
+            const rimRestitution = 0.75; // Bouncy like a basketball rim
+            const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
 
             // Left rim collision
             if (distFromCenter < 0 && ball.x + bRadius > mouthLeft) {
                 const rimInnerEdge = mouthCenterX - innerHoleRadius;
-                if (ball.x + bRadius > mouthLeft && ball.x < rimInnerEdge) {
-                    // Bounce off left rim - push right
-                    ball.x = mouthLeft - bRadius - 0.5;
-                    ball.vx = -Math.abs(ball.vx) * physics.wallRestitution;
-                    ball.vy *= 0.9;
+                if (ball.x + bRadius > mouthLeft && ball.x < rimInnerEdge + bRadius) {
+                    // Calculate angle of impact for realistic bounce
+                    const overlapX = ball.x + bRadius - mouthLeft;
+                    const pushStrength = Math.min(overlapX + 2, 8);
+
+                    // Bounce off left rim - push away with energy
+                    ball.x = mouthLeft - bRadius - 1;
+
+                    // Add upward component for exciting "rattling" feel
+                    const upwardBoost = Math.max(2, Math.abs(ball.vy) * 0.3);
+                    ball.vx = -(Math.abs(ball.vx) + pushStrength) * rimRestitution;
+                    ball.vy = -Math.abs(ball.vy) * 0.6 - upwardBoost;
+
+                    // Add slight randomness for unpredictability
+                    ball.vx += (Math.random() - 0.5) * 2;
+                    ball.vy += (Math.random() - 0.5) * 1;
+
+                    // Debounce rim sound - minimum 100ms between hits
+                    const now = performance.now();
+                    if (!ball.lastRimHitTime || now - ball.lastRimHitTime > 100) {
+                        ball.lastRimHitTime = now;
+                        // Play rim hit sound
+                        try {
+                            if (window.audioManager && typeof window.audioManager.playRimHit === 'function') {
+                                window.audioManager.playRimHit();
+                            }
+                        } catch (e) {}
+
+                        // Trigger screen shake
+                        if (window.game && typeof window.game.triggerShake === 'function') {
+                            window.game.triggerShake(4, 80);
+                        }
+                    }
+
                     return true;
                 }
             }
@@ -297,11 +341,40 @@ const Collision = {
             // Right rim collision
             if (distFromCenter > 0 && ball.x - bRadius < mouthRight) {
                 const rimInnerEdge = mouthCenterX + innerHoleRadius;
-                if (ball.x - bRadius < mouthRight && ball.x > rimInnerEdge) {
-                    // Bounce off right rim - push left
-                    ball.x = mouthRight + bRadius + 0.5;
-                    ball.vx = Math.abs(ball.vx) * physics.wallRestitution;
-                    ball.vy *= 0.9;
+                if (ball.x - bRadius < mouthRight && ball.x > rimInnerEdge - bRadius) {
+                    // Calculate angle of impact for realistic bounce
+                    const overlapX = mouthRight - (ball.x - bRadius);
+                    const pushStrength = Math.min(overlapX + 2, 8);
+
+                    // Bounce off right rim - push away with energy
+                    ball.x = mouthRight + bRadius + 1;
+
+                    // Add upward component for exciting "rattling" feel
+                    const upwardBoost = Math.max(2, Math.abs(ball.vy) * 0.3);
+                    ball.vx = (Math.abs(ball.vx) + pushStrength) * rimRestitution;
+                    ball.vy = -Math.abs(ball.vy) * 0.6 - upwardBoost;
+
+                    // Add slight randomness for unpredictability
+                    ball.vx += (Math.random() - 0.5) * 2;
+                    ball.vy += (Math.random() - 0.5) * 1;
+
+                    // Debounce rim sound - minimum 100ms between hits
+                    const now = performance.now();
+                    if (!ball.lastRimHitTime || now - ball.lastRimHitTime > 100) {
+                        ball.lastRimHitTime = now;
+                        // Play rim hit sound
+                        try {
+                            if (window.audioManager && typeof window.audioManager.playRimHit === 'function') {
+                                window.audioManager.playRimHit();
+                            }
+                        } catch (e) {}
+
+                        // Trigger screen shake
+                        if (window.game && typeof window.game.triggerShake === 'function') {
+                            window.game.triggerShake(4, 80);
+                        }
+                    }
+
                     return true;
                 }
             }

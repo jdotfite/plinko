@@ -25,9 +25,9 @@ const LAYOUTS = {
 };
 
 const LEVELS = [
-    { id: 'classic', name: 'Level 1', mouthSpeed: 0.9, pegBonus: 0, powerPegCount: 2, powerPegEffect: 'multiball' },
-    { id: 'dense', name: 'Level 2', mouthSpeed: 1.05, pegBonus: 4, powerPegCount: 3, powerPegEffect: 'slowmo' },
-    { id: 'sparse', name: 'Level 3', mouthSpeed: 1.15, pegBonus: 8, powerPegCount: 2, powerPegEffect: 'bonus' }
+    { id: 'classic', name: 'Level 1', mouthSpeed: 0.9, pegBonus: 0 },
+    { id: 'dense', name: 'Level 2', mouthSpeed: 1.05, pegBonus: 4 },
+    { id: 'sparse', name: 'Level 3', mouthSpeed: 1.15, pegBonus: 8 }
 ];
 
 window.LAYOUTS = LAYOUTS;

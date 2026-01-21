@@ -732,6 +732,501 @@ class SoundManager {
     }
 
     /**
+     * Rim hit sound - metallic basketball rim clang
+     */
+    playRimHit() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // === Layer 1: Metallic ring - the main "clang" ===
+            const ringFreq = 800 + Math.random() * 200;
+            const ring = this.ctx.createOscillator();
+            ring.type = 'triangle';
+            ring.frequency.setValueAtTime(ringFreq * 1.2, now);
+            ring.frequency.exponentialRampToValueAtTime(ringFreq, now + 0.02);
+            ring.frequency.exponentialRampToValueAtTime(ringFreq * 0.85, now + 0.15);
+
+            const ringGain = this.ctx.createGain();
+            ringGain.gain.setValueAtTime(0.0001, now);
+            ringGain.gain.exponentialRampToValueAtTime(0.7, now + 0.003);
+            ringGain.gain.exponentialRampToValueAtTime(0.3, now + 0.05);
+            ringGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+            ring.connect(ringGain);
+            ringGain.connect(dest);
+            ring.start(now);
+            ring.stop(now + 0.28);
+
+            // === Layer 2: High harmonic for metallic shimmer ===
+            const shimmer = this.ctx.createOscillator();
+            shimmer.type = 'sine';
+            shimmer.frequency.setValueAtTime(ringFreq * 2.5, now);
+            shimmer.frequency.exponentialRampToValueAtTime(ringFreq * 2, now + 0.1);
+
+            const shimmerGain = this.ctx.createGain();
+            shimmerGain.gain.setValueAtTime(0.0001, now);
+            shimmerGain.gain.exponentialRampToValueAtTime(0.35, now + 0.002);
+            shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+            shimmer.connect(shimmerGain);
+            shimmerGain.connect(dest);
+            shimmer.start(now);
+            shimmer.stop(now + 0.15);
+
+            // === Layer 3: Low body thud ===
+            const thud = this.ctx.createOscillator();
+            thud.type = 'sine';
+            thud.frequency.setValueAtTime(180, now);
+            thud.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+
+            const thudGain = this.ctx.createGain();
+            thudGain.gain.setValueAtTime(0.0001, now);
+            thudGain.gain.exponentialRampToValueAtTime(0.5, now + 0.004);
+            thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+            thud.connect(thudGain);
+            thudGain.connect(dest);
+            thud.start(now);
+            thud.stop(now + 0.1);
+
+            // === Layer 4: Impact noise burst ===
+            const noiseDur = 0.08;
+            const noiseBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * noiseDur), this.ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseData.length; i++) {
+                const t = i / noiseData.length;
+                noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2);
+            }
+
+            const noiseSrc = this.ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuffer;
+
+            const noiseBP = this.ctx.createBiquadFilter();
+            noiseBP.type = 'bandpass';
+            noiseBP.frequency.value = 2000;
+            noiseBP.Q.value = 2;
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.0001, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.4, now + 0.002);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+
+            noiseSrc.connect(noiseBP);
+            noiseBP.connect(noiseGain);
+            noiseGain.connect(dest);
+            noiseSrc.start(now);
+            noiseSrc.stop(now + noiseDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Power-up activation sound - magical zap + whoosh
+     */
+    playPowerUp() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // === Layer 1: Rising synth sweep ===
+            const sweep = this.ctx.createOscillator();
+            sweep.type = 'sawtooth';
+            sweep.frequency.setValueAtTime(200, now);
+            sweep.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+            sweep.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+
+            const sweepGain = this.ctx.createGain();
+            sweepGain.gain.setValueAtTime(0.0001, now);
+            sweepGain.gain.exponentialRampToValueAtTime(0.3, now + 0.02);
+            sweepGain.gain.exponentialRampToValueAtTime(0.15, now + 0.15);
+            sweepGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+            // Low pass to smooth the sawtooth
+            const sweepLP = this.ctx.createBiquadFilter();
+            sweepLP.type = 'lowpass';
+            sweepLP.frequency.setValueAtTime(1500, now);
+            sweepLP.frequency.exponentialRampToValueAtTime(4000, now + 0.15);
+
+            sweep.connect(sweepLP);
+            sweepLP.connect(sweepGain);
+            sweepGain.connect(dest);
+            sweep.start(now);
+            sweep.stop(now + 0.4);
+
+            // === Layer 2: Magical chime burst ===
+            const chimeNotes = [659.25, 880, 1046.50, 1318.51]; // E5, A5, C6, E6
+            chimeNotes.forEach((freq, i) => {
+                const startTime = now + 0.02 + i * 0.03;
+
+                const chime = this.ctx.createOscillator();
+                chime.type = 'sine';
+                chime.frequency.setValueAtTime(freq, startTime);
+
+                const chimeGain = this.ctx.createGain();
+                chimeGain.gain.setValueAtTime(0.0001, startTime);
+                chimeGain.gain.exponentialRampToValueAtTime(0.35 - i * 0.05, startTime + 0.01);
+                chimeGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.3);
+
+                chime.connect(chimeGain);
+                chimeGain.connect(dest);
+                chime.start(startTime);
+                chime.stop(startTime + 0.35);
+            });
+
+            // === Layer 3: Electric zap noise ===
+            const zapDur = 0.1;
+            const zapBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * zapDur), this.ctx.sampleRate);
+            const zapData = zapBuffer.getChannelData(0);
+            for (let i = 0; i < zapData.length; i++) {
+                const t = i / zapData.length;
+                zapData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 1.5);
+            }
+
+            const zapSrc = this.ctx.createBufferSource();
+            zapSrc.buffer = zapBuffer;
+
+            const zapHP = this.ctx.createBiquadFilter();
+            zapHP.type = 'highpass';
+            zapHP.frequency.value = 2000;
+
+            const zapGain = this.ctx.createGain();
+            zapGain.gain.setValueAtTime(0.0001, now);
+            zapGain.gain.exponentialRampToValueAtTime(0.4, now + 0.005);
+            zapGain.gain.exponentialRampToValueAtTime(0.0001, now + zapDur);
+
+            zapSrc.connect(zapHP);
+            zapHP.connect(zapGain);
+            zapGain.connect(dest);
+            zapSrc.start(now);
+            zapSrc.stop(now + zapDur);
+
+            // === Layer 4: Deep power thump ===
+            const thump = this.ctx.createOscillator();
+            thump.type = 'sine';
+            thump.frequency.setValueAtTime(100, now);
+            thump.frequency.exponentialRampToValueAtTime(60, now + 0.1);
+
+            const thumpGain = this.ctx.createGain();
+            thumpGain.gain.setValueAtTime(0.0001, now);
+            thumpGain.gain.exponentialRampToValueAtTime(0.5, now + 0.01);
+            thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+            thump.connect(thumpGain);
+            thumpGain.connect(dest);
+            thump.start(now);
+            thump.stop(now + 0.18);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Ball clack sound - balls clacking as they drop into magazine
+     * Accepts options: { pitch: number }
+     */
+    playBallClack(opts) {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Parse options
+            let pitchFactor = 1.0;
+            if (opts && typeof opts === 'object') {
+                if (typeof opts.pitch === 'number') pitchFactor = opts.pitch;
+            }
+
+            // === Layer 1: Short percussive click (ball impact) ===
+            const clickFreq = (1800 + Math.random() * 400) * pitchFactor;
+            const click = this.ctx.createOscillator();
+            click.type = 'sine';
+            click.frequency.setValueAtTime(clickFreq, now);
+            click.frequency.exponentialRampToValueAtTime(clickFreq * 0.6, now + 0.03);
+
+            const clickGain = this.ctx.createGain();
+            clickGain.gain.setValueAtTime(0.0001, now);
+            clickGain.gain.exponentialRampToValueAtTime(0.35, now + 0.002);
+            clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+            click.connect(clickGain);
+            clickGain.connect(dest);
+            click.start(now);
+            click.stop(now + 0.06);
+
+            // === Layer 2: Lower body thud ===
+            const thudFreq = (400 + Math.random() * 100) * pitchFactor;
+            const thud = this.ctx.createOscillator();
+            thud.type = 'triangle';
+            thud.frequency.setValueAtTime(thudFreq, now);
+            thud.frequency.exponentialRampToValueAtTime(thudFreq * 0.5, now + 0.04);
+
+            const thudGain = this.ctx.createGain();
+            thudGain.gain.setValueAtTime(0.0001, now);
+            thudGain.gain.exponentialRampToValueAtTime(0.25, now + 0.003);
+            thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+
+            thud.connect(thudGain);
+            thudGain.connect(dest);
+            thud.start(now);
+            thud.stop(now + 0.07);
+
+            // === Layer 3: Tiny noise burst for texture ===
+            const noiseDur = 0.03;
+            const noiseBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * noiseDur), this.ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseData.length; i++) {
+                const t = i / noiseData.length;
+                noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3);
+            }
+
+            const noiseSrc = this.ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuffer;
+
+            const noiseHP = this.ctx.createBiquadFilter();
+            noiseHP.type = 'highpass';
+            noiseHP.frequency.value = 3000;
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.0001, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.2, now + 0.001);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+
+            noiseSrc.connect(noiseHP);
+            noiseHP.connect(noiseGain);
+            noiseGain.connect(dest);
+            noiseSrc.start(now);
+            noiseSrc.stop(now + noiseDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Magazine settle sound - subtle mechanical settle when all balls loaded
+     */
+    playMagazineSettle() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Subtle mechanical "chunk" - balls settling into place
+            const settleFreq = 300 + Math.random() * 100;
+            const settle = this.ctx.createOscillator();
+            settle.type = 'sine';
+            settle.frequency.setValueAtTime(settleFreq, now);
+            settle.frequency.exponentialRampToValueAtTime(settleFreq * 0.7, now + 0.08);
+
+            const settleGain = this.ctx.createGain();
+            settleGain.gain.setValueAtTime(0.0001, now);
+            settleGain.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
+            settleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+            const settleLP = this.ctx.createBiquadFilter();
+            settleLP.type = 'lowpass';
+            settleLP.frequency.value = 800;
+
+            settle.connect(settleLP);
+            settleLP.connect(settleGain);
+            settleGain.connect(dest);
+            settle.start(now);
+            settle.stop(now + 0.15);
+
+            // Soft rattle noise
+            const rattleDur = 0.08;
+            const rattleBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * rattleDur), this.ctx.sampleRate);
+            const rattleData = rattleBuffer.getChannelData(0);
+            for (let i = 0; i < rattleData.length; i++) {
+                const t = i / rattleData.length;
+                rattleData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2) * 0.5;
+            }
+
+            const rattleSrc = this.ctx.createBufferSource();
+            rattleSrc.buffer = rattleBuffer;
+
+            const rattleBP = this.ctx.createBiquadFilter();
+            rattleBP.type = 'bandpass';
+            rattleBP.frequency.value = 1200;
+            rattleBP.Q.value = 2;
+
+            const rattleGain = this.ctx.createGain();
+            rattleGain.gain.setValueAtTime(0.0001, now);
+            rattleGain.gain.exponentialRampToValueAtTime(0.15, now + 0.01);
+            rattleGain.gain.exponentialRampToValueAtTime(0.0001, now + rattleDur);
+
+            rattleSrc.connect(rattleBP);
+            rattleBP.connect(rattleGain);
+            rattleGain.connect(dest);
+            rattleSrc.start(now);
+            rattleSrc.stop(now + rattleDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Cannon load sound - mechanical chunk when ball loads into cannon
+     */
+    playCannonLoad() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // === Layer 1: Mechanical slide sound (ball sliding into chamber) ===
+            const slideFreq = 250;
+            const slide = this.ctx.createOscillator();
+            slide.type = 'triangle';
+            slide.frequency.setValueAtTime(slideFreq * 1.5, now);
+            slide.frequency.exponentialRampToValueAtTime(slideFreq, now + 0.08);
+
+            const slideGain = this.ctx.createGain();
+            slideGain.gain.setValueAtTime(0.0001, now);
+            slideGain.gain.exponentialRampToValueAtTime(0.25, now + 0.01);
+            slideGain.gain.exponentialRampToValueAtTime(0.1, now + 0.06);
+            slideGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+            slide.connect(slideGain);
+            slideGain.connect(dest);
+            slide.start(now);
+            slide.stop(now + 0.14);
+
+            // === Layer 2: Click/lock sound (ball locking into place) ===
+            const lockTime = now + 0.08;
+            const lockFreq = 800 + Math.random() * 200;
+            const lock = this.ctx.createOscillator();
+            lock.type = 'sine';
+            lock.frequency.setValueAtTime(lockFreq, lockTime);
+            lock.frequency.exponentialRampToValueAtTime(lockFreq * 0.6, lockTime + 0.03);
+
+            const lockGain = this.ctx.createGain();
+            lockGain.gain.setValueAtTime(0.0001, lockTime);
+            lockGain.gain.exponentialRampToValueAtTime(0.4, lockTime + 0.003);
+            lockGain.gain.exponentialRampToValueAtTime(0.0001, lockTime + 0.06);
+
+            lock.connect(lockGain);
+            lockGain.connect(dest);
+            lock.start(lockTime);
+            lock.stop(lockTime + 0.08);
+
+            // === Layer 3: Metallic resonance ===
+            const resFreq = 600 + Math.random() * 100;
+            const res = this.ctx.createOscillator();
+            res.type = 'sine';
+            res.frequency.setValueAtTime(resFreq, lockTime);
+
+            const resGain = this.ctx.createGain();
+            resGain.gain.setValueAtTime(0.0001, lockTime);
+            resGain.gain.exponentialRampToValueAtTime(0.2, lockTime + 0.005);
+            resGain.gain.exponentialRampToValueAtTime(0.0001, lockTime + 0.15);
+
+            res.connect(resGain);
+            resGain.connect(dest);
+            res.start(lockTime);
+            res.stop(lockTime + 0.18);
+
+            // === Layer 4: Impact noise ===
+            const noiseDur = 0.05;
+            const noiseBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * noiseDur), this.ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseData.length; i++) {
+                const t = i / noiseData.length;
+                noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.5);
+            }
+
+            const noiseSrc = this.ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuffer;
+
+            const noiseBP = this.ctx.createBiquadFilter();
+            noiseBP.type = 'bandpass';
+            noiseBP.frequency.value = 2000;
+            noiseBP.Q.value = 1.5;
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.0001, lockTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.3, lockTime + 0.002);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, lockTime + 0.04);
+
+            noiseSrc.connect(noiseBP);
+            noiseBP.connect(noiseGain);
+            noiseGain.connect(dest);
+            noiseSrc.start(lockTime);
+            noiseSrc.stop(lockTime + noiseDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
      * Style bonus sound - achievement sparkle
      */
     playStyleBonus() {

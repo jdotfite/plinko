@@ -32,38 +32,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rect = canvas.getBoundingClientRect();
         const scale = game.renderer.scale || 1;
-        const board = game.board;
 
-        // Calculate playfield bounds in screen coordinates
-        const innerLeft = rect.left + board.innerLeft * scale;
-        const innerRight = rect.left + board.innerRight * scale;
-        const innerTop = rect.top + board.innerTop * scale;
-
-        // P1 panel - top left of playfield
+        // Hide old P1/P2 panels from playfield (now in bottom panel)
         const p1Panel = document.getElementById('hud-p1');
-        if (p1Panel) {
-            p1Panel.style.left = `${innerLeft + 14 * scale}px`;
-            p1Panel.style.top = `${innerTop + 14 * scale}px`;
-            p1Panel.style.opacity = '1';
-        }
-
-        // P2 panel - top right of playfield
         const p2Panel = document.getElementById('hud-p2');
-        if (p2Panel) {
-            p2Panel.style.right = 'auto';
-            p2Panel.style.left = `${innerRight - 14 * scale - p2Panel.offsetWidth}px`;
-            p2Panel.style.top = `${innerTop + 14 * scale}px`;
-            p2Panel.style.opacity = '1';
-        }
+        if (p1Panel) p1Panel.style.display = 'none';
+        if (p2Panel) p2Panel.style.display = 'none';
 
-        // Center HUD - below cannon
+        // Center HUD - hidden (replaced by bottom panel)
         const centerHud = document.getElementById('hud-center');
-        if (centerHud) {
-            const cannonY = game.cannon.y * scale;
-            centerHud.style.left = `${rect.left + (board.innerLeft + board.innerWidth / 2) * scale}px`;
-            centerHud.style.top = `${rect.top + cannonY + 75 * scale}px`;
-            centerHud.style.transform = 'translateX(-50%)';
-            centerHud.style.opacity = '1';
+        if (centerHud) centerHud.style.display = 'none';
+
+        // Bottom UI Panel - position at bottom of canvas and SCALE with canvas
+        const bottomPanel = document.getElementById('bottom-ui-panel');
+        if (bottomPanel) {
+            const canvasBottom = rect.bottom;
+            const canvasLeft = rect.left;
+            const canvasWidth = rect.width;
+
+            // Scale the UI panel proportionally with the canvas
+            // Base width is 1080px (CONFIG.TARGET_WIDTH), so scale factor matches renderer
+            bottomPanel.style.position = 'fixed';
+            bottomPanel.style.left = `${canvasLeft}px`;
+            bottomPanel.style.width = '1080px';  // Fixed base width
+            bottomPanel.style.maxWidth = '1080px';
+            bottomPanel.style.transformOrigin = 'bottom left';
+            bottomPanel.style.transform = `scale(${scale})`;
+            // Position accounts for scaled height
+            bottomPanel.style.bottom = `${window.innerHeight - canvasBottom}px`;
         }
     }
 
@@ -72,6 +68,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(positionHUD, 100);
     setTimeout(positionHUD, 300); // Second call to ensure proper sizing after fonts load
     window.addEventListener('resize', positionHUD);
+
+    // Wire up bottom gear button to open admin panel
+    const bottomGear = document.getElementById('bottom-gear');
+    if (bottomGear) {
+        bottomGear.addEventListener('click', () => {
+            const panel = document.getElementById('admin-panel');
+            const overlay = document.getElementById('admin-overlay');
+            if (panel && overlay) {
+                panel.classList.remove('hidden');
+                panel.classList.add('open');
+                panel.setAttribute('aria-hidden', 'false');
+                overlay.classList.remove('hidden');
+            }
+        });
+    }
 
     // Confetti helper (simple DOM-based pieces)
     window.spawnConfetti = function(pageX, pageY, count = 12) {
@@ -116,31 +127,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // HUD updater
     window.updateHud = function(state) {
-        const p1Score = document.getElementById('p1-score');
-        const p2Score = document.getElementById('p2-score');
-        const comboEl = document.getElementById('combo-meter');
-        const orangeEl = document.getElementById('orange-remaining');
-        const p1Panel = document.getElementById('hud-p1');
-        const p2Panel = document.getElementById('hud-p2');
         if (!state) return;
 
-        if (p1Score) p1Score.textContent = String(state.p1 || 0);
-        if (p2Score) p2Score.textContent = String(state.p2 || 0);
-        if (orangeEl) {
-            orangeEl.textContent = String(state.orangePegsRemaining ?? 25);
-        }
-        if (comboEl) {
-            const comboValue = 1 + (state.combo || 0) * (window.game ? window.game.tuning.comboStep : 0.1);
-            comboEl.textContent = `x${comboValue.toFixed(1)}`;
-        }
+        // Update level select if present
         const levelSelect = document.getElementById('level-select');
         if (levelSelect && typeof state.levelIndex === 'number') {
             levelSelect.value = String(state.levelIndex);
         }
-        // Highlight active player panel
-        if (p1Panel && p2Panel) {
-            p1Panel.classList.toggle('active', state.currentPlayer === 1);
-            p2Panel.classList.toggle('active', state.currentPlayer === 2);
+
+        // Update bottom UI panel - P1 score
+        const bottomP1Score = document.getElementById('bottom-p1-score');
+        if (bottomP1Score) bottomP1Score.textContent = String(state.p1 || 0);
+
+        // Update bottom UI panel - P2 score
+        const bottomP2Score = document.getElementById('bottom-p2-score');
+        if (bottomP2Score) bottomP2Score.textContent = String(state.p2 || 0);
+
+        // Update bottom UI panel - P1 balls remaining
+        const bottomP1Balls = document.getElementById('bottom-p1-balls');
+        if (bottomP1Balls && window.game) {
+            const remaining = window.game.shotsPerPlayer - (state.shotsTaken?.[0] || 0);
+            bottomP1Balls.textContent = String(remaining);
+        }
+
+        // Update bottom UI panel - P2 balls remaining
+        const bottomP2Balls = document.getElementById('bottom-p2-balls');
+        if (bottomP2Balls && window.game) {
+            const remaining = window.game.shotsPerPlayer - (state.shotsTaken?.[1] || 0);
+            bottomP2Balls.textContent = String(remaining);
+        }
+
+        // Update bottom UI panel - orange pegs
+        const bottomOrange = document.getElementById('bottom-orange');
+        if (bottomOrange) {
+            bottomOrange.textContent = String(state.orangePegsRemaining ?? 25);
+        }
+
+        // Update bottom UI panel - combo
+        const bottomCombo = document.getElementById('bottom-combo');
+        if (bottomCombo) {
+            const comboValue = 1 + (state.combo || 0) * (window.game ? window.game.tuning.comboStep : 0.1);
+            bottomCombo.textContent = `x${comboValue.toFixed(1)}`;
+        }
+
+        // Highlight active player in bottom panel and hide P2 in single player mode
+        const p1Section = document.querySelector('.bottom-player.p1');
+        const p2Section = document.querySelector('.bottom-player.p2');
+        const isTwoPlayer = window.game && window.game.twoPlayerMode;
+        if (p1Section && p2Section) {
+            p1Section.classList.toggle('active', state.currentPlayer === 1);
+            p2Section.classList.toggle('active', state.currentPlayer === 2);
+            // Hide P2 section in single player mode
+            p2Section.style.display = isTwoPlayer ? '' : 'none';
         }
     };
     if (window.game && typeof window.game._notifyHud === 'function') {
@@ -156,6 +194,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('hidden');
         okBtn.onclick = () => {
             modal.classList.add('hidden');
+            // Start magazine loading animation after modal is dismissed
+            if (window.game && typeof window.game.startMagazineAnimation === 'function') {
+                window.game.startMagazineAnimation();
+            }
         };
     }
 

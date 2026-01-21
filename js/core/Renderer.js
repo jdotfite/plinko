@@ -176,20 +176,11 @@ class Renderer {
             }
         } catch (e) {}
 
-        // Render moving goal mouth (clipped to playfield so bottom appears behind frame)
-        if (game.goalMouth) {
-            ctx.save();
-            // Clip to playfield area - goal mouth bottom will be hidden behind frame
-            ctx.beginPath();
-            ctx.rect(
-                game.board.innerLeft * scale,
-                game.board.innerTop * scale,
-                game.board.innerWidth * scale,
-                game.board.innerHeight * scale
-            );
-            ctx.clip();
+        // Render moving goal mouth OR fever slots during Extreme Fever
+        if (game.extremeFever && game.feverSlots && game.feverSlots.active) {
+            game.feverSlots.render(ctx, scale);
+        } else if (game.goalMouth) {
             game.goalMouth.render(ctx, scale);
-            ctx.restore();
         }
 
         // Render all active/landed balls
@@ -231,6 +222,44 @@ class Renderer {
         // === BARREL (rotating, drawn first so ring covers pivot) ===
         ctx.save();
         ctx.rotate(angle - Math.PI / 2); // PI/2 = pointing down
+
+        // === LOADED BALL (drawn first, behind barrel) ===
+        const canShoot = game.state === CONFIG.STATES.IDLE ||
+                         game.state === CONFIG.STATES.AIMING ||
+                         game.state === CONFIG.STATES.CHARGING;
+        const currentMag = game.magazines && game.magazines[game.currentPlayerIndex];
+        const hasShots = currentMag && currentMag.remaining > 0;
+        // Only show loaded ball after cannon_loading animation completes
+        const cannonReady = currentMag && currentMag.cannonReady;
+
+        if (canShoot && hasShots && cannonReady && !game.matchOver) {
+            const ballRadius = CONFIG.BALL.radius * scale * 0.85;
+            const ballY = barrelLength - 6 * scale; // Inside barrel, barely visible
+
+            // Ball shadow
+            ctx.shadowColor = 'rgba(0,0,0,0.15)';
+            ctx.shadowBlur = 6 * scale;
+            ctx.shadowOffsetY = 3 * scale;
+
+            // Ball border
+            ctx.beginPath();
+            ctx.arc(0, ballY, ballRadius + 2 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.ballBorder;
+            ctx.fill();
+
+            // Ball fill
+            ctx.shadowColor = 'transparent';
+            ctx.beginPath();
+            ctx.arc(0, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.ballFill;
+            ctx.fill();
+
+            // Subtle highlight
+            ctx.beginPath();
+            ctx.arc(-ballRadius * 0.3, ballY - ballRadius * 0.3, ballRadius * 0.25, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fill();
+        }
 
         // Barrel shadow
         ctx.shadowColor = 'rgba(0,0,0,0.18)';
@@ -381,18 +410,178 @@ class Renderer {
 
         for (const p of game.scorePopups) {
             const age = now - p.birth;
-            const duration = p.isStyleBonus ? 1200 : 800;
+
+            // Lightning effect
+            if (p.isLightning) {
+                if (age > 300) continue;
+                const alpha = 1 - age / 300;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = '#00FFFF';
+                ctx.lineWidth = 3 * scale;
+                ctx.shadowColor = '#00FFFF';
+                ctx.shadowBlur = 15 * scale;
+                ctx.beginPath();
+                ctx.moveTo(p.fromX * scale, p.fromY * scale);
+                // Jagged lightning path
+                const dx = p.x - p.fromX;
+                const dy = p.y - p.fromY;
+                for (let i = 1; i <= 4; i++) {
+                    const t = i / 5;
+                    const jx = p.fromX + dx * t + (Math.random() - 0.5) * 30;
+                    const jy = p.fromY + dy * t + (Math.random() - 0.5) * 30;
+                    ctx.lineTo(jx * scale, jy * scale);
+                }
+                ctx.lineTo(p.x * scale, p.y * scale);
+                ctx.stroke();
+                ctx.restore();
+                continue;
+            }
+
+            // Explosion effect
+            if (p.isExplosion) {
+                if (age > 400) continue;
+                const progress = age / 400;
+                const radius = p.radius * progress * scale;
+                const alpha = 1 - progress;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                // Expanding ring
+                ctx.strokeStyle = '#FF5722';
+                ctx.lineWidth = (8 - progress * 6) * scale;
+                ctx.shadowColor = '#FF5722';
+                ctx.shadowBlur = 20 * scale;
+                ctx.beginPath();
+                ctx.arc(p.x * scale, p.y * scale, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                // Inner flash
+                if (progress < 0.3) {
+                    ctx.fillStyle = `rgba(255, 200, 100, ${(0.3 - progress) * 2})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x * scale, p.y * scale, radius * 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+
+            // Spooky respawn effect
+            if (p.isSpookyRespawn) {
+                if (age > 500) continue;
+                const progress = age / 500;
+                const alpha = 1 - progress;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#9B59B6';
+                ctx.shadowColor = '#9B59B6';
+                ctx.shadowBlur = 25 * scale;
+                // Swirling particles
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2 + progress * Math.PI;
+                    const dist = 30 * progress * scale;
+                    const px = p.x * scale + Math.cos(angle) * dist;
+                    const py = p.y * scale + Math.sin(angle) * dist;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 4 * scale * (1 - progress), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+
+            // Free Ball popup
+            if (p.isFreeBall) {
+                const duration = 1200;
+                if (age > duration) continue;
+                const progress = age / duration;
+                const floatDist = 60;
+                const y = p.y - floatDist * progress;
+                const alpha = 1 - progress * 0.7;
+                const bounceScale = 1 + Math.sin(progress * Math.PI * 2) * 0.1 * (1 - progress);
+
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.font = `bold ${18 * scale * bounceScale}px system-ui, -apple-system, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = '#00AA44';
+                ctx.shadowBlur = 12 * scale;
+                ctx.strokeStyle = '#005522';
+                ctx.lineWidth = 4 * scale;
+                ctx.strokeText('FREE BALL!', p.x * scale, y * scale);
+                ctx.fillStyle = '#00FF66';
+                ctx.fillText('FREE BALL!', p.x * scale, y * scale);
+                // Also show bonus points below
+                ctx.font = `bold ${14 * scale}px system-ui`;
+                ctx.strokeText(`+${p.value}`, p.x * scale, (y + 20) * scale);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(`+${p.value}`, p.x * scale, (y + 20) * scale);
+                ctx.restore();
+                continue;
+            }
+
+            const duration = p.isPowerUp ? 1400 : (p.isStyleBonus ? 1200 : (p.isFeverBonus ? 1500 : 800));
             if (age > duration) continue;
 
             const progress = age / duration;
-            const floatDist = p.isStyleBonus ? 60 : 40;
+            const floatDist = p.isPowerUp ? 70 : (p.isStyleBonus ? 60 : (p.isFeverBonus ? 80 : 40));
             const y = p.y - (floatDist * progress); // Float upward
             const alpha = 1 - progress;
 
             ctx.save();
             ctx.globalAlpha = alpha;
 
-            if (p.isStyleBonus) {
+            if (p.isPowerUp) {
+                // Power-up popup - green glow, dramatic
+                const bounceScale = 1 + Math.sin(progress * Math.PI * 3) * 0.12 * (1 - progress);
+                const pulse = Math.sin(now * 0.01) * 0.1 + 1;
+
+                // Power-up name (e.g., "MULTIBALL", "FIREBALL")
+                ctx.font = `bold ${18 * scale * bounceScale}px system-ui, -apple-system, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = '#00FF55';
+                ctx.shadowBlur = 15 * scale * pulse;
+                ctx.strokeStyle = '#005500';
+                ctx.lineWidth = 4 * scale;
+                ctx.strokeText(p.powerUpName, p.x * scale, (y - 15) * scale);
+                ctx.fillStyle = '#00FF55';
+                ctx.fillText(p.powerUpName, p.x * scale, (y - 15) * scale);
+
+                // Points value
+                ctx.font = `bold ${22 * scale * bounceScale}px system-ui, -apple-system, sans-serif`;
+                ctx.shadowBlur = 10 * scale;
+                ctx.strokeStyle = '#005500';
+                ctx.lineWidth = 4 * scale;
+                ctx.strokeText(`+${p.value}`, p.x * scale, (y + 10) * scale);
+                ctx.fillStyle = '#00FF55';
+                ctx.fillText(`+${p.value}`, p.x * scale, (y + 10) * scale);
+            } else if (p.isFeverBonus) {
+                // Fever bonus popup - huge, rainbow/gold, dramatic
+                const bounceScale = 1 + Math.sin(progress * Math.PI * 4) * 0.15 * (1 - progress);
+                const hue = (now * 0.2) % 360;
+
+                // "FEVER BONUS" label
+                ctx.font = `bold ${16 * scale * bounceScale}px system-ui, -apple-system, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4 * scale;
+                ctx.strokeText('FEVER BONUS', p.x * scale, (y - 18) * scale);
+                ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+                ctx.fillText('FEVER BONUS', p.x * scale, (y - 18) * scale);
+
+                // Points value - large and bold
+                const valueStr = p.value >= 1000 ? `+${Math.round(p.value / 1000)}K` : `+${p.value}`;
+                ctx.font = `bold ${32 * scale * bounceScale}px system-ui, -apple-system, sans-serif`;
+                ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                ctx.shadowBlur = 20 * scale;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 5 * scale;
+                ctx.strokeText(valueStr, p.x * scale, (y + 12) * scale);
+                ctx.fillStyle = '#FFD700';
+                ctx.fillText(valueStr, p.x * scale, (y + 12) * scale);
+            } else if (p.isStyleBonus) {
                 // Style bonus popup - larger, golden, with name
                 const bounceScale = 1 + Math.sin(progress * Math.PI * 3) * 0.1 * (1 - progress);
 
@@ -436,8 +625,24 @@ class Renderer {
     renderMagazines(game, scale) {
         if (!game.magazines) return;
         const ctx = this.ctx;
-        for (const mag of game.magazines) {
-            mag.render(ctx, scale);
+
+        // Determine if cannon has a loaded ball (for current player only)
+        const canShoot = game.state === CONFIG.STATES.IDLE ||
+                         game.state === CONFIG.STATES.AIMING ||
+                         game.state === CONFIG.STATES.CHARGING;
+
+        for (let i = 0; i < game.magazines.length; i++) {
+            // Hide P2 magazine in single player mode
+            if (i === 1 && !game.twoPlayerMode) continue;
+
+            const mag = game.magazines[i];
+            const isCurrentPlayer = i === game.currentPlayerIndex;
+
+            // Current player's magazine reserves bottom slot for cannon ball
+            const cannonLoaded = isCurrentPlayer && canShoot && mag.cannonReady &&
+                                 mag.remaining > 0 && !game.matchOver;
+
+            mag.render(ctx, scale, cannonLoaded);
         }
     }
 

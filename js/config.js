@@ -81,7 +81,7 @@ const CONFIG = {
         chevronCount: 3,      // 3 bumps per side (6 total)
         innerInset: 70,       // Gap between outer frame and straight walls
         innerTopPadding: 20,  // Minimal space for drop zone - reduced to fill screen
-        innerBottomPadding: 85 // Space reserved for buckets/dividers - slightly more than sides for anchor feel
+        innerBottomPadding: 85 // Space reserved for goal mouth area
     },
     
     // Peg configuration - offset grid (Peggle-style dense layout)
@@ -107,7 +107,8 @@ const CONFIG = {
     // Peg types
     PEG_TYPES: {
         BLUE: 'blue',
-        ORANGE: 'orange'
+        ORANGE: 'orange',
+        GREEN: 'green'
     },
 
     // Peggle-style mechanics
@@ -115,8 +116,24 @@ const CONFIG = {
         orangePegCount: 25,
         orangePoints: 100,
         bluePoints: 10,
+        greenPegCount: 2,     // 2 green pegs per level (power-ups)
+        greenPoints: 50,      // Points for hitting green peg
         feverDuration: 2500,  // Slow-mo duration in ms
         feverZoom: 1.4        // Camera zoom level
+    },
+
+    // Power-up definitions
+    POWERUPS: {
+        multiball: { name: 'Multiball', desc: 'Spawns 2 extra balls', color: '#00FF55' },
+        fireball: { name: 'Fireball', desc: 'Burns through 8 pegs', color: '#FF4500' },
+        spooky: { name: 'Spooky Ball', desc: 'Returns to top if falls out', color: '#9B59B6' },
+        zen: { name: 'Zen Ball', desc: 'Extended trajectory guide', color: '#3498DB' },
+        thunder: { name: 'Thunder', desc: 'Lightning chains to nearby pegs', color: '#00FFFF' },
+        sniper: { name: 'Sniper', desc: 'Precise aim, no randomness', color: '#E74C3C' },
+        ghost: { name: 'Ghost', desc: 'Phases through pegs, still scores', color: '#BDC3C7' },
+        magnet: { name: 'Magnet', desc: 'Curves toward orange pegs', color: '#E91E63' },
+        bomb: { name: 'Space Blast', desc: 'Explodes nearby pegs on hit', color: '#FF5722' },
+        splitter: { name: 'Splitter', desc: 'Splits on each peg hit (3x max)', color: '#8E44AD' }
     },
 
     // Magazine (skeeball-style ball slot)
@@ -202,4 +219,5 @@ Object.freeze(CONFIG.STATES);
 Object.freeze(CONFIG.CANNON);
 Object.freeze(CONFIG.PEG_TYPES);
 Object.freeze(CONFIG.PEGGLE);
+Object.freeze(CONFIG.POWERUPS);
 Object.freeze(CONFIG.MAGAZINE);

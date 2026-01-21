@@ -21,8 +21,13 @@
     const shotsValue = $('shots-value');
     const layoutSelect = $('layout-select');
     const levelSelect = $('level-select');
+    const greenPegRange = $('green-peg-range');
+    const greenPegValue = $('green-peg-value');
+    const twoPlayerToggle = $('two-player-toggle');
+    const powerupGrid = $('powerup-grid');
+    const powerupCount = $('powerup-count');
 
-    const STORAGE_KEY = 'plinko_settings_v2';
+    const STORAGE_KEY = 'plinko_settings_v3';
 
     function openPanel(){
         if (panel) {
@@ -66,7 +71,10 @@
                 mouthSpeed: mouthSpeedRange ? parseFloat(mouthSpeedRange.value) : null,
                 shotsPerPlayer: shotsRange ? parseInt(shotsRange.value, 10) : null,
                 layout: layoutSelect ? layoutSelect.value : 'classic',
-                levelIndex: levelSelect ? parseInt(levelSelect.value, 10) : 0
+                levelIndex: levelSelect ? parseInt(levelSelect.value, 10) : 0,
+                greenPegCount: greenPegRange ? parseInt(greenPegRange.value, 10) : 6,
+                twoPlayerMode: twoPlayerToggle ? twoPlayerToggle.checked : false,
+                enabledPowerUps: window.game ? window.game.enabledPowerUps : null
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
         } catch (e) {}
@@ -118,6 +126,22 @@
                 if (window.game && typeof window.game.setLevel === 'function') {
                     window.game.setLevel(obj.levelIndex);
                 }
+            }
+            if (typeof obj.greenPegCount === 'number' && greenPegRange) {
+                greenPegRange.value = String(obj.greenPegCount);
+                if (greenPegValue) greenPegValue.textContent = String(obj.greenPegCount);
+                if (window.game) {
+                    window.game.greenPegCount = obj.greenPegCount;
+                }
+            }
+            if (typeof obj.twoPlayerMode === 'boolean' && twoPlayerToggle) {
+                twoPlayerToggle.checked = obj.twoPlayerMode;
+                if (window.game) {
+                    window.game.twoPlayerMode = obj.twoPlayerMode;
+                }
+            }
+            if (Array.isArray(obj.enabledPowerUps) && window.game) {
+                window.game.enabledPowerUps = obj.enabledPowerUps;
             }
         } catch (e) {}
     }
@@ -210,6 +234,80 @@
         });
     }
 
+    if (greenPegRange) {
+        greenPegValue.textContent = greenPegRange.value;
+        greenPegRange.addEventListener('input', (e) => {
+            greenPegValue.textContent = e.target.value;
+        });
+        greenPegRange.addEventListener('change', () => {
+            if (window.game && typeof window.game.setGreenPegCount === 'function') {
+                window.game.setGreenPegCount(parseInt(greenPegRange.value, 10));
+            }
+            saveSettings();
+        });
+    }
+
+    if (twoPlayerToggle) {
+        twoPlayerToggle.checked = false; // Default to single player
+        twoPlayerToggle.addEventListener('change', (e) => {
+            if (window.game && typeof window.game.setTwoPlayerMode === 'function') {
+                window.game.setTwoPlayerMode(e.target.checked);
+            }
+            saveSettings();
+        });
+    }
+
+    // =============================================
+    // Power-Up Toggle UI
+    // =============================================
+
+    function populatePowerUpGrid() {
+        if (!powerupGrid || !CONFIG.POWERUPS) return;
+
+        const allPowerUps = Object.keys(CONFIG.POWERUPS);
+        const enabledList = window.game ? window.game.enabledPowerUps : allPowerUps;
+        const enabledCount = enabledList.length;
+
+        if (powerupCount) {
+            powerupCount.textContent = `${enabledCount}/${allPowerUps.length}`;
+        }
+
+        powerupGrid.innerHTML = '';
+
+        for (const id of allPowerUps) {
+            const powerup = CONFIG.POWERUPS[id];
+            const isEnabled = enabledList.includes(id);
+
+            const item = document.createElement('div');
+            item.className = 'powerup-item';
+            if (isEnabled) item.classList.add('enabled');
+
+            item.innerHTML = `
+                <div class="powerup-icon" style="background: ${powerup.color}"></div>
+                <div class="powerup-name">${powerup.name}</div>
+            `;
+            item.title = powerup.desc;
+
+            item.addEventListener('click', () => {
+                const nowEnabled = item.classList.toggle('enabled');
+                if (window.game && typeof window.game.setPowerUpEnabled === 'function') {
+                    window.game.setPowerUpEnabled(id, nowEnabled);
+                }
+                updatePowerUpCount();
+                saveSettings();
+            });
+
+            powerupGrid.appendChild(item);
+        }
+    }
+
+    function updatePowerUpCount() {
+        if (!powerupCount || !CONFIG.POWERUPS) return;
+        const allPowerUps = Object.keys(CONFIG.POWERUPS);
+        const enabledList = window.game ? window.game.enabledPowerUps : allPowerUps;
+        powerupCount.textContent = `${enabledList.length}/${allPowerUps.length}`;
+    }
+
     function resetSettings() {
         try {
             localStorage.removeItem(STORAGE_KEY);
@@ -252,10 +350,22 @@
                 window.game.setLevel(0);
             }
         }
+        if (greenPegRange) {
+            greenPegRange.value = '6';
+            greenPegValue.textContent = '6';
+        }
+        if (twoPlayerToggle) {
+            twoPlayerToggle.checked = false;
+        }
         applyTuning();
         if (window.game) {
             window.game.setShotsPerPlayer(10, true);
+            window.game.setGreenPegCount(6);
+            window.game.setTwoPlayerMode(false);
+            // Reset all power-ups to enabled
+            window.game.enabledPowerUps = Object.keys(CONFIG.POWERUPS);
         }
+        populatePowerUpGrid();
         saveSettings();
     }
 
@@ -324,10 +434,20 @@
 
     // Populate on load and when panel opens
     setTimeout(populateTrailGrid, 100);
+    setTimeout(populatePowerUpGrid, 100);
 
-    // Refresh trail grid when panel opens (to show new unlocks)
+    // Refresh grids when panel opens (to show new unlocks)
     gear && gear.addEventListener('click', () => {
         setTimeout(populateTrailGrid, 50);
+        setTimeout(populatePowerUpGrid, 50);
+    });
+
+    // Bottom gear button also opens admin
+    const bottomGear = $('bottom-gear');
+    bottomGear && bottomGear.addEventListener('click', () => {
+        openPanel();
+        setTimeout(populateTrailGrid, 50);
+        setTimeout(populatePowerUpGrid, 50);
     });
 
     loadSettings();

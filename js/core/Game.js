@@ -46,8 +46,20 @@ class Game {
         if (!this.pegs || this.pegs.length === 0) {
             this.pegs = createPegs();
         }
-        // Assign orange pegs
+        // Assign orange pegs, then green pegs (use configurable count for testing)
         Layout.assignOrangePegs(this.pegs, CONFIG.PEGGLE.orangePegCount);
+        Layout.assignGreenPegs(this.pegs, this.greenPegCount);
+
+        // Power-up state
+        this.currentPowerUp = null;       // Active power-up type
+        this.powerUpPending = false;      // Power-up ready to trigger next shot
+
+        // Power-up settings (which ones are enabled)
+        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'zen', 'thunder', 'sniper', 'ghost', 'magnet', 'bomb', 'splitter'];
+
+        // Game mode settings
+        this.twoPlayerMode = false;       // Default to single player
+        this.greenPegCount = 6;           // More green pegs for testing
 
         this.slots = this.layout.buildSlots(this.board);
         this.slotDividers = createSlotDividers(this.slots);
@@ -60,6 +72,7 @@ class Game {
         ];
         this.magazines[0].setTotal(this.shotsPerPlayer);
         this.magazines[1].setTotal(this.shotsPerPlayer);
+        // Loading animation will start when modal is dismissed
 
         // Cannon + tuning
         this.cannon = {
@@ -78,11 +91,9 @@ class Game {
             maxChargeMs: 900,
             pegScore: 10,
             comboStep: 0.1,
-            mouthSpeed: 2.1,
-            mouthWidth: 160,
-            mouthBonus: 120,
-            powerPegBonus: 60,
-            powerPegEffect: 'multiball'
+            mouthSpeed: 3.0,
+            mouthWidth: 200,
+            mouthBonus: 120
         };
         this.currentLevelIndex = 0;
         this.levels = (window.LEVELS && Array.isArray(window.LEVELS)) ? window.LEVELS : [];
@@ -90,11 +101,17 @@ class Game {
         this.slowMoUntil = 0;
         this.applyLevel(this.currentLevelIndex);
 
-        // Goal mouth
+        // Goal mouth - positioned above the bottom UI panel (UI now scales with canvas)
         this.goalMouth = new GoalMouth(this.board, {
-            width: this.tuning.mouthWidth,
-            speed: this.tuning.mouthSpeed,
-            y: this.board.innerBottom - 36
+            width: 200,   // Wider mouth
+            height: 60,   // Taller tube
+            speed: 3.0,   // Faster movement
+            y: this.board.innerBottom - 155  // Position above scaled bottom UI
+        });
+
+        // Fever slots - score multiplier slots during Extreme Fever
+        this.feverSlots = new FeverSlots(this.board, {
+            y: this.board.innerBottom - 150
         });
 
         // Physics timing
@@ -117,6 +134,17 @@ class Game {
     start() {
         this.lastTime = performance.now();
         requestAnimationFrame((time) => this.gameLoop(time));
+    }
+
+    /**
+     * Start the magazine loading animation (called when modal is dismissed)
+     */
+    startMagazineAnimation() {
+        if (this.magazines) {
+            for (const mag of this.magazines) {
+                mag.startLoadingAnimation();
+            }
+        }
     }
 
     setShotsPerPlayer(count, reset = false) {
@@ -146,6 +174,46 @@ class Game {
         }
     }
 
+    /**
+     * Enable or disable a power-up
+     */
+    setPowerUpEnabled(powerUp, enabled) {
+        if (!powerUp) return;
+        const idx = this.enabledPowerUps.indexOf(powerUp);
+        if (enabled && idx === -1) {
+            this.enabledPowerUps.push(powerUp);
+        } else if (!enabled && idx !== -1) {
+            this.enabledPowerUps.splice(idx, 1);
+        }
+    }
+
+    /**
+     * Check if a power-up is enabled
+     */
+    isPowerUpEnabled(powerUp) {
+        return this.enabledPowerUps.includes(powerUp);
+    }
+
+    /**
+     * Set 2-player mode
+     */
+    setTwoPlayerMode(enabled) {
+        this.twoPlayerMode = enabled;
+        if (!enabled) {
+            // In single player, only use P1
+            this.currentPlayerIndex = 0;
+        }
+        this.resetMatch();
+    }
+
+    /**
+     * Set number of green pegs (for testing)
+     */
+    setGreenPegCount(count) {
+        this.greenPegCount = Math.max(0, Math.min(20, Math.floor(count)));
+        this.resetMatch();
+    }
+
     setLayout(layout) {
         if (!layout || typeof layout.buildPegs !== 'function') return;
         this.layout = layout;
@@ -153,13 +221,13 @@ class Game {
         if (!this.pegs || this.pegs.length === 0) {
             this.pegs = createPegs();
         }
-        // Assign orange pegs to the new layout
+        // Assign orange pegs and green pegs to the new layout
         Layout.assignOrangePegs(this.pegs, CONFIG.PEGGLE.orangePegCount);
+        Layout.assignGreenPegs(this.pegs, this.greenPegCount);
         this.orangePegsRemaining = CONFIG.PEGGLE.orangePegCount;
 
         this.slots = (typeof layout.buildSlots === 'function') ? layout.buildSlots(this.board) : createSlots();
         this.slotDividers = createSlotDividers(this.slots);
-        this.assignPowerPegs();
         this.renderer.staticDirty = true;
         this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
         this._notifyHud();
@@ -187,15 +255,6 @@ class Game {
         if (typeof level.pegBonus === 'number') {
             this.tuning.pegScore = 10 + level.pegBonus;
         }
-        if (typeof level.powerPegBonus === 'number') {
-            this.tuning.powerPegBonus = level.powerPegBonus;
-        }
-        if (typeof level.powerPegEffect === 'string') {
-            this.tuning.powerPegEffect = level.powerPegEffect;
-        }
-        if (typeof level.powerPegCount === 'number') {
-            this.assignPowerPegs(level.powerPegCount);
-        }
     }
 
     advanceLevel() {
@@ -217,9 +276,18 @@ class Game {
             if (elapsed > CONFIG.PEGGLE.feverDuration) {
                 this.extremeFever = false;
                 this.timeScale = 1;
+                // Deactivate fever slots when fever ends
+                if (this.feverSlots) {
+                    this.feverSlots.deactivate();
+                }
             } else {
                 activeScale = this.timeScale || 0.3;
             }
+        }
+
+        // Update fever slots
+        if (this.feverSlots) {
+            this.feverSlots.update(deltaTime * activeScale);
         }
 
         // Fixed timestep physics
@@ -253,12 +321,28 @@ class Game {
             this.goalMouth.update(dt, this.board);
         }
 
+        // Process exploding pegs from bomb power-up
+        this._processExplodingPegs();
+
+        // Check zen mode timeout
+        if (this.zenMode && performance.now() > this.zenUntil) {
+            this.zenMode = false;
+        }
+
         if (this.state === CONFIG.STATES.DROPPING && this.balls.length > 0) {
             for (const ball of this.balls) {
                 if (!ball.active || ball.landed) continue;
 
+                // Apply magnet effect before physics
+                this._applyMagnetEffect(ball);
+
                 // Update physics
                 ball.update(dt, this.tuning);
+
+                // Check thunder timeout
+                if (ball.isThunder && performance.now() > ball.thunderUntil) {
+                    ball.isThunder = false;
+                }
 
                 // Check peg collisions
                 for (const peg of this.pegs) {
@@ -267,9 +351,45 @@ class Game {
 
                     const collision = Collision.ballToPeg(ball, peg);
                     if (collision) {
-                        Collision.resolveBallPeg(ball, collision);
+                        // Handle different power-up collision behaviors
+                        let shouldBounce = true;
+
+                        // Fireball burns through pegs
+                        if (ball.isFireball && ball.fireballHits < ball.maxFireballHits) {
+                            ball.fireballHits++;
+                            shouldBounce = false;
+                            if (ball.fireballHits >= ball.maxFireballHits) {
+                                ball.isFireball = false;
+                            }
+                        }
+
+                        // Ghost phases through pegs
+                        if (ball.isGhost && ball.ghostHits < ball.maxGhostHits) {
+                            ball.ghostHits++;
+                            shouldBounce = false;
+                            if (ball.ghostHits >= ball.maxGhostHits) {
+                                ball.isGhost = false;
+                            }
+                        }
+
+                        // Resolve collision if needed
+                        if (shouldBounce) {
+                            Collision.resolveBallPeg(ball, collision);
+                        }
+
+                        // Handle peg hit (scoring, effects)
                         this._handlePegHit(peg, ball);
-                        this._handlePowerPeg(peg, ball);
+
+                        // Splitter splits on peg hit
+                        if (ball.isSplitter && ball.splitsRemaining > 0) {
+                            this._handleSplitterSplit(ball);
+                        }
+
+                        // Bomb ball causes explosions
+                        if (ball.isBomb && ball.bombHitsRemaining > 0) {
+                            ball.bombHitsRemaining--;
+                            this._powerUpBomb(ball, peg);
+                        }
                     }
                 }
 
@@ -279,19 +399,33 @@ class Game {
                     this.combo = 0;
                 }
 
-                // Goal mouth rim collision (bounces ball off the sides)
-                Collision.ballToGoalMouthRim(ball, this.goalMouth);
+                // During Extreme Fever, use fever slots instead of goal mouth
+                if (this.extremeFever && this.feverSlots && this.feverSlots.active) {
+                    const slotResult = this.feverSlots.checkBallLanding(ball);
+                    if (slotResult) {
+                        this._handleFeverSlotCatch(ball, slotResult);
+                        continue;
+                    }
+                } else {
+                    // Goal mouth rim collision (bounces ball off the sides)
+                    Collision.ballToGoalMouthRim(ball, this.goalMouth);
 
-                // Goal mouth catch (only if ball falls into the inner hole)
-                if (Collision.ballToGoalMouth(ball, this.goalMouth)) {
-                    this._handleGoalCatch(ball);
-                    continue;
+                    // Goal mouth catch (only if ball falls into the inner hole)
+                    if (Collision.ballToGoalMouth(ball, this.goalMouth)) {
+                        this._handleGoalCatch(ball);
+                        continue;
+                    }
                 }
 
-                // Slot landing
-                const landedSlot = Collision.ballToSlots(ball, this.slots);
-                if (landedSlot) {
-                    this._handleBallLanding(ball, landedSlot);
+                // Ball fell out of bounds (missed the goal mouth/fever slots)
+                if (ball.y > this.board.innerBottom + 100) {
+                    // Spooky ball gets a second chance
+                    if (ball.isSpooky && !ball.spookyUsed) {
+                        if (this._handleSpookyRespawn(ball)) {
+                            continue; // Ball respawned, don't land it
+                        }
+                    }
+                    this._handleBallLanding(ball, null);
                 }
             }
         }
@@ -309,7 +443,11 @@ class Game {
         if (this.matchOver) return false;
         if (this.state !== CONFIG.STATES.IDLE) return false;
         const anyActive = this.balls.some(b => b.active && !b.landed);
-        return !anyActive;
+        if (anyActive) return false;
+        // Wait for magazine animation to complete and cannon to be loaded
+        const currentMag = this.magazines && this.magazines[this.currentPlayerIndex];
+        if (currentMag && !currentMag.cannonReady) return false;
+        return true;
     }
 
     startCharging(x, y) {
@@ -340,6 +478,12 @@ class Game {
 
         // Reset per-shot stats for trail unlock tracking
         this._resetShotStats();
+
+        // Animate ball leaving magazine
+        const mag = this.magazines[this.currentPlayerIndex];
+        if (mag) {
+            mag.useShot();
+        }
 
         const b = new Ball(this.cannon.x, this.cannon.y);
         b.hiddenUntilExit = true;
@@ -455,6 +599,19 @@ class Game {
                 if (this.orangePegsRemaining === 0) {
                     this.triggerExtremeFever(peg);
                 }
+            } else if (peg.pegType === 'green') {
+                // Green peg hit - award power-up!
+                this._handleGreenPegHit(peg, ball);
+
+                // Play special green peg sound (power-up)
+                try {
+                    if (window.audioManager && typeof window.audioManager.playPowerUp === 'function') {
+                        window.audioManager.playPowerUp();
+                    } else if (window.audioManager && typeof window.audioManager.playStyleBonus === 'function') {
+                        // Fallback to style bonus sound
+                        window.audioManager.playStyleBonus();
+                    }
+                } catch (e) {}
             } else {
                 // Regular blue peg sound with pitch scaling
                 try {
@@ -507,6 +664,11 @@ class Game {
         this.extremeFeverTarget = { x: lastPeg.x, y: lastPeg.y };
         this.timeScale = 0.3; // Slow-mo
 
+        // Activate fever slots (score multiplier zones)
+        if (this.feverSlots) {
+            this.feverSlots.activate();
+        }
+
         // Big celebratory shake
         this.triggerShake(12, 400);
 
@@ -532,20 +694,335 @@ class Game {
         } catch (e) {}
     }
 
-    _handlePowerPeg(peg, ball) {
-        if (!peg || !peg.isPower || peg.powerUsed) return;
-        peg.powerUsed = true;
-        this.players[this.currentPlayerIndex].score += this.tuning.powerPegBonus;
-        if (this.tuning.powerPegEffect === 'slowmo') {
-            this.slowMoUntil = performance.now() + 1800;
-        } else if (this.tuning.powerPegEffect === 'bonus') {
-            this.players[this.currentPlayerIndex].score += Math.round(this.tuning.powerPegBonus * 1.5);
-        } else if (this.tuning.powerPegEffect === 'multiball') {
-            this._spawnExtraBalls(ball, 2);
+    /**
+     * Handle green peg hit - awards a power-up
+     */
+    _handleGreenPegHit(peg, ball) {
+        if (!peg || peg.pegType !== 'green') return;
+
+        // Award points
+        this.players[this.currentPlayerIndex].score += CONFIG.PEGGLE.greenPoints;
+
+        // Pick a random power-up from enabled list
+        if (!this.enabledPowerUps || this.enabledPowerUps.length === 0) return;
+        const powerUp = this.enabledPowerUps[Math.floor(Math.random() * this.enabledPowerUps.length)];
+
+        // Activate power-up immediately based on type
+        this._activatePowerUp(powerUp, ball, peg);
+
+        // Get power-up display name
+        const powerUpConfig = CONFIG.POWERUPS[powerUp];
+        const displayName = powerUpConfig ? powerUpConfig.name : powerUp.toUpperCase();
+
+        // Score popup with power-up name
+        this.scorePopups.push({
+            x: peg.x,
+            y: peg.y - 20,
+            value: CONFIG.PEGGLE.greenPoints,
+            birth: performance.now(),
+            isPowerUp: true,
+            powerUpName: displayName,
+            powerUpType: powerUp
+        });
+
+        // Celebratory shake
+        this.triggerShake(6, 200);
+    }
+
+    /**
+     * Activate a power-up
+     */
+    _activatePowerUp(type, ball, peg) {
+        this.currentPowerUp = type;
+
+        switch (type) {
+            case 'multiball':
+                this._powerUpMultiball(ball);
+                break;
+            case 'fireball':
+                this._powerUpFireball(ball);
+                break;
+            case 'spooky':
+                this._powerUpSpooky(ball);
+                break;
+            case 'zen':
+                this._powerUpZen(ball);
+                break;
+            case 'thunder':
+                this._powerUpThunder(ball, peg);
+                break;
+            case 'sniper':
+                this._powerUpSniper(ball);
+                break;
+            case 'ghost':
+                this._powerUpGhost(ball);
+                break;
+            case 'magnet':
+                this._powerUpMagnet(ball);
+                break;
+            case 'bomb':
+                this._powerUpBomb(ball, peg);
+                break;
+            case 'splitter':
+                this._powerUpSplitter(ball);
+                break;
         }
-        this._notifyHud();
-        this.renderer.staticDirty = true;
-        this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
+    }
+
+    // =============================================
+    // Power-Up Implementations
+    // =============================================
+
+    /**
+     * Multiball - Spawns 2 extra balls
+     */
+    _powerUpMultiball(sourceBall) {
+        if (!sourceBall) return;
+        const baseSpeed = Math.hypot(sourceBall.vx, sourceBall.vy) || 12;
+
+        for (let i = 0; i < 2; i++) {
+            const b = new Ball(sourceBall.x, sourceBall.y);
+            const angleOffset = (i === 0 ? -0.4 : 0.4);
+            const baseAngle = Math.atan2(sourceBall.vy, sourceBall.vx);
+            b.launch(baseAngle + angleOffset, baseSpeed * 0.95);
+            this.balls.push(b);
+        }
+    }
+
+    /**
+     * Fireball - Burns through pegs without bouncing
+     */
+    _powerUpFireball(ball) {
+        if (!ball) return;
+        ball.isFireball = true;
+        ball.fireballHits = 0;
+        ball.maxFireballHits = 8;
+    }
+
+    /**
+     * Spooky Ball - Returns to top if falls out of bounds
+     */
+    _powerUpSpooky(ball) {
+        if (!ball) return;
+        ball.isSpooky = true;
+        ball.spookyUsed = false;
+    }
+
+    /**
+     * Zen Ball - Extended trajectory guide (shows more bounces)
+     */
+    _powerUpZen(ball) {
+        if (!ball) return;
+        ball.isZen = true;
+        this.zenMode = true;
+        this.zenUntil = performance.now() + 10000; // 10 seconds of zen
+    }
+
+    /**
+     * Thunder - Lightning chains to nearby pegs
+     */
+    _powerUpThunder(ball, peg) {
+        if (!peg) return;
+
+        // Find nearby pegs and hit them with lightning
+        const thunderRadius = 150;
+        const maxChain = 5;
+        let chainCount = 0;
+
+        for (const p of this.pegs) {
+            if (p.isHit || chainCount >= maxChain) continue;
+            const dx = p.x - peg.x;
+            const dy = p.y - peg.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > 0 && dist < thunderRadius) {
+                // Add lightning effect
+                this.scorePopups.push({
+                    x: p.x, y: p.y,
+                    isLightning: true,
+                    fromX: peg.x, fromY: peg.y,
+                    birth: performance.now()
+                });
+
+                // Hit the peg
+                this._handlePegHit(p, ball);
+                chainCount++;
+            }
+        }
+
+        // Give ball electric visual
+        if (ball) {
+            ball.isThunder = true;
+            ball.thunderUntil = performance.now() + 3000;
+        }
+    }
+
+    /**
+     * Sniper - Precise aim with no randomness
+     */
+    _powerUpSniper(ball) {
+        if (!ball) return;
+        ball.isSniper = true;
+        // Remove any velocity randomness
+        ball.vx = ball.vx; // Keep exact velocity
+        ball.vy = ball.vy;
+    }
+
+    /**
+     * Ghost - Phases through pegs (still scores but no bounce)
+     */
+    _powerUpGhost(ball) {
+        if (!ball) return;
+        ball.isGhost = true;
+        ball.ghostHits = 0;
+        ball.maxGhostHits = 12; // Can phase through 12 pegs
+    }
+
+    /**
+     * Magnet - Ball curves toward nearest orange peg
+     */
+    _powerUpMagnet(ball) {
+        if (!ball) return;
+        ball.isMagnet = true;
+        ball.magnetStrength = 0.15;
+    }
+
+    /**
+     * Space Blast (Bomb) - Explodes nearby pegs on each hit
+     */
+    _powerUpBomb(ball, peg) {
+        if (!peg) return;
+
+        const blastRadius = 120;
+        let blastCount = 0;
+
+        // Find all pegs in blast radius
+        for (const p of this.pegs) {
+            if (p.isHit || p === peg) continue;
+            const dx = p.x - peg.x;
+            const dy = p.y - peg.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < blastRadius) {
+                // Mark for explosion
+                p.isExploding = true;
+                p.explodeTime = performance.now() + (dist / blastRadius) * 200;
+                blastCount++;
+            }
+        }
+
+        // Add explosion visual
+        this.scorePopups.push({
+            x: peg.x, y: peg.y,
+            isExplosion: true,
+            radius: blastRadius,
+            birth: performance.now()
+        });
+
+        // Big shake for explosion
+        this.triggerShake(10, 300);
+
+        // Give ball bomb visual
+        if (ball) {
+            ball.isBomb = true;
+            ball.bombHitsRemaining = 3; // 3 more explosions
+        }
+    }
+
+    /**
+     * Splitter - Ball splits on each peg hit (up to 3 times)
+     */
+    _powerUpSplitter(ball) {
+        if (!ball) return;
+        ball.isSplitter = true;
+        ball.splitsRemaining = 3;
+    }
+
+    /**
+     * Process exploding pegs (called from update)
+     */
+    _processExplodingPegs() {
+        const now = performance.now();
+        for (const peg of this.pegs) {
+            if (peg.isExploding && !peg.isHit && now >= peg.explodeTime) {
+                peg.isExploding = false;
+                this._handlePegHit(peg, null);
+            }
+        }
+    }
+
+    /**
+     * Apply magnet effect to ball (called from update)
+     */
+    _applyMagnetEffect(ball) {
+        if (!ball || !ball.isMagnet || !ball.active) return;
+
+        // Find nearest orange peg
+        let nearest = null;
+        let nearestDist = Infinity;
+
+        for (const peg of this.pegs) {
+            if (peg.isHit || peg.pegType !== 'orange') continue;
+            const dx = peg.x - ball.x;
+            const dy = peg.y - ball.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < nearestDist && dist < 300) {
+                nearestDist = dist;
+                nearest = peg;
+            }
+        }
+
+        if (nearest) {
+            const dx = nearest.x - ball.x;
+            const dy = nearest.y - ball.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            // Apply attraction force (stronger when closer)
+            const force = ball.magnetStrength * (1 - dist / 300);
+            ball.vx += (dx / dist) * force;
+            ball.vy += (dy / dist) * force;
+        }
+    }
+
+    /**
+     * Handle spooky ball respawn
+     */
+    _handleSpookyRespawn(ball) {
+        if (!ball || !ball.isSpooky || ball.spookyUsed) return false;
+
+        // Ball fell out - respawn at top
+        ball.spookyUsed = true;
+        ball.x = this.cannon.x + (Math.random() - 0.5) * 200;
+        ball.y = this.board.innerTop + 100;
+        ball.vy = Math.abs(ball.vy) * 0.5 || 5; // Fall down
+        ball.vx = ball.vx * 0.5;
+        ball.landed = false;
+        ball.active = true;
+
+        // Visual effect
+        this.scorePopups.push({
+            x: ball.x, y: ball.y,
+            isSpookyRespawn: true,
+            birth: performance.now()
+        });
+
+        return true; // Respawned
+    }
+
+    /**
+     * Handle splitter ball split
+     */
+    _handleSplitterSplit(ball) {
+        if (!ball || !ball.isSplitter || ball.splitsRemaining <= 0) return;
+
+        ball.splitsRemaining--;
+        const baseSpeed = Math.hypot(ball.vx, ball.vy) || 8;
+        const baseAngle = Math.atan2(ball.vy, ball.vx);
+
+        // Create one new ball at perpendicular angle
+        const newBall = new Ball(ball.x, ball.y);
+        const splitAngle = baseAngle + (Math.random() > 0.5 ? 0.6 : -0.6);
+        newBall.launch(splitAngle, baseSpeed * 0.85);
+        this.balls.push(newBall);
     }
 
     _handleGoalCatch(ball) {
@@ -561,6 +1038,21 @@ class Game {
             this.persistentStats.goalCatches += 1;
             this._savePersistentStats();
         }
+
+        // Animate ball returning to magazine (free ball!)
+        const mag = this.magazines[this.currentPlayerIndex];
+        if (mag) {
+            mag.returnBallAnimation();
+        }
+
+        // Show "FREE BALL" popup
+        this.scorePopups.push({
+            x: this.goalMouth.x + this.goalMouth.width / 2,
+            y: this.goalMouth.y - 30,
+            value: bonus,
+            birth: performance.now(),
+            isFreeBall: true
+        });
 
         // Give ball back - decrement shotsTaken (will be re-incremented in _finishShot)
         // Net effect: this shot doesn't count against the player
@@ -581,6 +1073,66 @@ class Game {
                 window.spawnConfetti(cx, cy, 16);
             }
         } catch (e) {}
+        this._maybeFinishShot();
+    }
+
+    /**
+     * Handle ball landing in fever slot during Extreme Fever
+     */
+    _handleFeverSlotCatch(ball, slotResult) {
+        ball.land(null);
+
+        // Award the fever slot bonus
+        const bonus = slotResult.value;
+        this.players[this.currentPlayerIndex].score += bonus;
+
+        // Show big score popup
+        this.scorePopups.push({
+            x: ball.x,
+            y: ball.y - 20,
+            value: bonus,
+            birth: performance.now(),
+            isOrange: false,
+            isFeverBonus: true
+        });
+
+        // Track for stats
+        if (this.persistentStats) {
+            this.persistentStats.goalCatches += 1;
+            this._savePersistentStats();
+        }
+
+        // Extra shake and celebration for 100K slot (center)
+        if (slotResult.slotIndex === 2) {
+            this.triggerShake(15, 300);
+            // Spawn extra confetti
+            try {
+                if (typeof window.spawnConfetti === 'function') {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const cx = rect.left + ball.x * this.renderer.scale;
+                    const cy = rect.top + ball.y * this.renderer.scale;
+                    window.spawnConfetti(cx, cy, 30);
+                }
+            } catch (e) {}
+        } else {
+            this.triggerShake(8, 150);
+            try {
+                if (typeof window.spawnConfetti === 'function') {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const cx = rect.left + ball.x * this.renderer.scale;
+                    const cy = rect.top + ball.y * this.renderer.scale;
+                    window.spawnConfetti(cx, cy, 15);
+                }
+            } catch (e) {}
+        }
+
+        // Play celebration sound
+        try {
+            if (window.audioManager && typeof window.audioManager.playKerplunk === 'function') {
+                window.audioManager.playKerplunk();
+            }
+        } catch (e) {}
+
         this._maybeFinishShot();
     }
 
@@ -635,6 +1187,23 @@ class Game {
             return;
         }
 
+        // Single player mode - only check P1
+        if (!this.twoPlayerMode) {
+            const p0Done = this.shotsTaken[0] >= this.shotsPerPlayer;
+            if (p0Done) {
+                this.matchOver = true;
+                this.state = CONFIG.STATES.IDLE;
+                this._notifyHud();
+                this._showMatchResult();
+                return;
+            }
+            // Stay as player 0
+            this.state = CONFIG.STATES.IDLE;
+            this._notifyHud();
+            return;
+        }
+
+        // Two player mode
         const p0Done = this.shotsTaken[0] >= this.shotsPerPlayer;
         const p1Done = this.shotsTaken[1] >= this.shotsPerPlayer;
         if (p0Done && p1Done) {
@@ -698,6 +1267,8 @@ class Game {
             modal.classList.add('hidden');
             this.advanceLevel();
             this.resetMatch();
+            // Start magazine loading animation after modal is dismissed
+            this.startMagazineAnimation();
         };
     }
 
@@ -716,17 +1287,26 @@ class Game {
         this.extremeFeverTarget = null;
         this.timeScale = 1;
 
+        // Deactivate fever slots
+        if (this.feverSlots) {
+            this.feverSlots.deactivate();
+        }
+
         // Rebuild pegs and assign new orange pegs
         this.pegs = this.layout.buildPegs(this.board);
         if (!this.pegs || this.pegs.length === 0) {
             this.pegs = createPegs();
         }
         Layout.assignOrangePegs(this.pegs, CONFIG.PEGGLE.orangePegCount);
+        Layout.assignGreenPegs(this.pegs, this.greenPegCount);
         this.orangePegsRemaining = CONFIG.PEGGLE.orangePegCount;
 
-        this.resetPowerPegs();
+        // Reset power-up state
+        this.currentPowerUp = null;
+        this.zenMode = false;
+        this.powerUpPending = false;
 
-        // Reset magazines
+        // Reset magazines (loading animation starts when modal is dismissed)
         if (this.magazines) {
             for (const mag of this.magazines) {
                 mag.setTotal(this.shotsPerPlayer);
@@ -737,30 +1317,6 @@ class Game {
         this.renderer.staticDirty = true;
         this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
         this._notifyHud();
-    }
-
-    assignPowerPegs(count) {
-        if (!this.pegs || !this.pegs.length) return;
-        const total = Math.max(0, Math.min(this.pegs.length, Math.floor(count || 0)));
-        for (const peg of this.pegs) {
-            peg.isPower = false;
-            peg.powerUsed = false;
-        }
-        const candidates = this.pegs.filter(p => !p.isGuideRow);
-        for (let i = 0; i < total && candidates.length; i++) {
-            const idx = Math.floor(Math.random() * candidates.length);
-            const peg = candidates.splice(idx, 1)[0];
-            if (peg) peg.isPower = true;
-        }
-    }
-
-    resetPowerPegs() {
-        if (!this.pegs) return;
-        for (const peg of this.pegs) {
-            peg.powerUsed = false;
-        }
-        this.renderer.staticDirty = true;
-        this.renderer.renderStatic(this.board, this.pegs, this.slots, this.slotDividers);
     }
 
     _spawnExtraBalls(sourceBall, count) {
@@ -784,14 +1340,18 @@ class Game {
         let y = this.cannon.y;
         let vx = Math.cos(angle) * power;
         let vy = Math.sin(angle) * power;
-        const steps = 36;
+        const steps = 40;
         const leftWall = this.board.innerLeft;
         const rightWall = this.board.innerRight;
         const segments = this.board.chevronSegments || [];
         const pegs = this.pegs || [];
-        const bRadius = CONFIG.BALL.radius * 0.7;
+        // Use actual ball radius for accurate collision preview
+        const bRadius = CONFIG.BALL.radius;
         const restitution = CONFIG.PHYSICS.wallRestitution;
         const pegRestitution = CONFIG.PHYSICS.pegRestitution;
+        // Use actual tuning values for gravity and friction
+        const gravity = this.tuning.gravity;
+        const friction = this.tuning.friction;
 
         const reflectOnSegment = (ax, ay, bx, by) => {
             const abx = bx - ax;
@@ -838,11 +1398,12 @@ class Game {
             return true;
         };
         for (let i = 0; i < steps; i++) {
+            // Apply physics in same order as Ball.update() for accuracy
+            vy += gravity;
+            vx *= friction;
+            vy *= friction;
             x += vx;
             y += vy;
-            vy += this.tuning.gravity;
-            vx *= this.tuning.friction;
-            vy *= this.tuning.friction;
             if (pegs.length) {
                 for (let p = 0; p < pegs.length; p++) {
                     if (reflectOnPeg(pegs[p])) break;

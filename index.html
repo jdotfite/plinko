@@ -26,6 +26,54 @@
             <div id="orange-counter"><span class="orange-dot"></span><span id="orange-remaining">25</span></div>
             <div id="combo-meter">x1.0</div>
         </div>
+        <!-- Bottom UI Panel (Peggle-style with curved top) -->
+        <div id="bottom-ui-panel">
+            <div class="bottom-ui-curve"></div>
+            <div class="bottom-ui-content">
+                <!-- P1 Score -->
+                <div class="bottom-player p1">
+                    <div class="player-badge">P1</div>
+                    <div class="player-score-value" id="bottom-p1-score">0</div>
+                    <div class="player-balls">
+                        <span class="ball-icon"></span>
+                        <span id="bottom-p1-balls">10</span>
+                    </div>
+                </div>
+
+                <!-- Center Stats -->
+                <div class="bottom-center">
+                    <div class="center-stat orange-stat">
+                        <div class="stat-label">Targets Left</div>
+                        <div class="stat-row">
+                            <span class="orange-peg-icon"></span>
+                            <span class="stat-value" id="bottom-orange">25</span>
+                        </div>
+                    </div>
+                    <div class="center-stat combo-stat">
+                        <div class="stat-label">Combo</div>
+                        <span class="stat-value" id="bottom-combo">x1.0</span>
+                    </div>
+                </div>
+
+                <!-- P2 Score -->
+                <div class="bottom-player p2">
+                    <div class="player-badge">P2</div>
+                    <div class="player-score-value" id="bottom-p2-score">0</div>
+                    <div class="player-balls">
+                        <span class="ball-icon"></span>
+                        <span id="bottom-p2-balls">10</span>
+                    </div>
+                </div>
+
+                <!-- Settings Gear -->
+                <button class="bottom-gear" id="bottom-gear" aria-label="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </div>
     <!-- Admin slide-in panel -->
     <div id="admin-overlay" class="hidden" onclick="(function(){const p=document.getElementById('admin-panel'),o=document.getElementById('admin-overlay');p.classList.add('hidden');p.classList.remove('open');p.setAttribute('aria-hidden','true');o.classList.add('hidden');})()"></div>
@@ -94,6 +142,31 @@
                 </select>
             </div>
 
+            <div class="control-row">
+                <div class="control-label">Green Pegs</div>
+                <input id="green-peg-range" type="range" min="0" max="15" step="1" value="6">
+                <div id="green-peg-value" class="value-badge">6</div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-label">2-Player</div>
+                <label class="switch">
+                    <input type="checkbox" id="two-player-toggle">
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+
+            <!-- Power-Up Toggles -->
+            <div class="powerup-section">
+                <div class="powerup-section-header">
+                    <h4>Power-Ups</h4>
+                    <span class="powerup-count" id="powerup-count">10/10</span>
+                </div>
+                <div class="powerup-grid" id="powerup-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
             <!-- Trail Selection -->
             <div class="trail-section">
                 <div class="trail-section-header">
@@ -126,26 +199,27 @@
     <div id="confetti-container" aria-hidden="true"></div>
 
     <!-- Load scripts in order -->
-    <script src="js/config.js?v=19"></script>
-    <script src="js/utils.js?v=19"></script>
-    <script src="js/core/ThemeManager.js?v=19"></script>
-    <script src="js/physics/Vector.js?v=19"></script>
-    <script src="js/physics/Collision.js?v=19"></script>
-    <script src="js/entities/Ball.js?v=19"></script>
-    <script src="js/entities/Peg.js?v=19"></script>
-    <script src="js/entities/Slot.js?v=19"></script>
-    <script src="js/entities/GoalMouth.js?v=19"></script>
-    <script src="js/entities/Magazine.js?v=19"></script>
-    <script src="js/layouts/Layout.js?v=19"></script>
-    <script src="js/layouts/Layouts.js?v=19"></script>
-    <script src="js/trails/TrailSystem.js?v=19"></script>
-    <script src="js/entities/Board.js?v=19"></script>
-    <script src="js/core/Renderer.js?v=19"></script>
-    <script src="js/core/InputHandler.js?v=19"></script>
-    <script src="js/core/Game.js?v=19"></script>
-    <script src="js/sound.js?v=19"></script>
-    <script src="js/admin.js?v=19"></script>
-    <script src="js/particles.js?v=19"></script>
-    <script src="js/main.js?v=19"></script>
+    <script src="js/config.js?v=20"></script>
+    <script src="js/utils.js?v=20"></script>
+    <script src="js/core/ThemeManager.js?v=20"></script>
+    <script src="js/physics/Vector.js?v=20"></script>
+    <script src="js/physics/Collision.js?v=20"></script>
+    <script src="js/entities/Ball.js?v=20"></script>
+    <script src="js/entities/Peg.js?v=20"></script>
+    <script src="js/entities/Slot.js?v=20"></script>
+    <script src="js/entities/GoalMouth.js?v=20"></script>
+    <script src="js/entities/FeverSlots.js?v=20"></script>
+    <script src="js/entities/Magazine.js?v=20"></script>
+    <script src="js/layouts/Layout.js?v=20"></script>
+    <script src="js/layouts/Layouts.js?v=20"></script>
+    <script src="js/trails/TrailSystem.js?v=20"></script>
+    <script src="js/entities/Board.js?v=20"></script>
+    <script src="js/core/Renderer.js?v=20"></script>
+    <script src="js/core/InputHandler.js?v=20"></script>
+    <script src="js/core/Game.js?v=20"></script>
+    <script src="js/sound.js?v=20"></script>
+    <script src="js/admin.js?v=20"></script>
+    <script src="js/particles.js?v=20"></script>
+    <script src="js/main.js?v=20"></script>
 </body>
 </html>
