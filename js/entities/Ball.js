@@ -332,6 +332,43 @@ class Ball {
             ctx.fillStyle = '#D8BFD8';
             ctx.fill();
         }
+        // Power Ball mode - green power-up glow
+        else if (this.isPowerBall) {
+            const pulse = Math.sin(now * 0.02) * 0.25 + 0.75;
+            const conversionsLeft = this.powerBallConversions || 0;
+
+            // Outer green glow (intensity based on remaining conversions)
+            ctx.shadowColor = '#00FF55';
+            ctx.shadowBlur = (18 + conversionsLeft * 4) * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 5 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#00DD44';
+            ctx.fill();
+
+            // Inner bright green
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
+            grad.addColorStop(0, '#AAFFAA');
+            grad.addColorStop(0.5, '#00FF55');
+            grad.addColorStop(1, '#00DD44');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Show number of conversions left as small dots
+            if (conversionsLeft > 0) {
+                ctx.fillStyle = '#FFFFFF';
+                for (let i = 0; i < conversionsLeft; i++) {
+                    const dotAngle = (i / 3) * Math.PI * 2 - Math.PI / 2;
+                    const dotX = x + Math.cos(dotAngle) * r * 0.5;
+                    const dotY = y + Math.sin(dotAngle) * r * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, 3 * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
         // Firework mode - rocket with sparkling trail
         else if (this.isFirework) {
             const isLaunching = this.fireworkPhase === 'launching';

@@ -56,7 +56,7 @@ class Game {
         this.powerUpPending = false;      // Power-up ready to trigger next shot
 
         // Power-up settings (which ones are enabled)
-        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'zen', 'lightning', 'ghost', 'magnet', 'bomb', 'splitter', 'firework', 'antigravity', 'bouncy', 'blackhole'];
+        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'powerball', 'lightning', 'ghost', 'magnet', 'bomb', 'splitter', 'firework', 'antigravity', 'bouncy', 'blackhole'];
 
         // Black holes active in the game
         this.blackHoles = [];
@@ -356,10 +356,6 @@ class Game {
         // Process burning pegs (fireball effect)
         this._processBurningPegs();
 
-        // Check zen mode timeout
-        if (this.zenMode && performance.now() > this.zenUntil) {
-            this.zenMode = false;
-        }
 
         if (this.state === CONFIG.STATES.DROPPING && this.balls.length > 0) {
             for (const ball of this.balls) {
@@ -398,6 +394,32 @@ class Game {
                                 peg.burnStartTime = performance.now();
                                 // Play burn sound
                                 AudioHelper.play('PegHit', { pitch: 1.5 });
+                            }
+                        }
+
+                        // Power Ball converts pegs to green power-up pegs
+                        if (ball.isPowerBall && ball.powerBallConversions > 0 && peg.pegType !== 'green') {
+                            // Convert the peg to green
+                            peg.pegType = 'green';
+                            peg.conversionTime = performance.now();
+                            ball.powerBallConversions--;
+                            shouldHitPeg = false; // Don't remove the peg
+
+                            // Visual/audio feedback
+                            this.scorePopups.push({
+                                x: peg.x,
+                                y: peg.y,
+                                isPowerBallConversion: true,
+                                birth: performance.now()
+                            });
+                            AudioHelper.play('PowerUp');
+
+                            // Mark static layer as dirty to re-render converted peg
+                            this.renderer.staticDirty = true;
+
+                            // Deactivate Power Ball when conversions run out
+                            if (ball.powerBallConversions <= 0) {
+                                ball.isPowerBall = false;
                             }
                         }
 
@@ -788,8 +810,8 @@ class Game {
             case 'spooky':
                 this._powerUpSpooky(ball);
                 break;
-            case 'zen':
-                this._powerUpZen(ball);
+            case 'powerball':
+                this._powerUpPowerBall(ball);
                 break;
             case 'lightning':
                 this._powerUpLightning(ball, peg);
@@ -860,13 +882,12 @@ class Game {
     }
 
     /**
-     * Zen Ball - Extended trajectory guide (shows more bounces)
+     * Power Ball - Turns first 3 pegs it touches into green power-up pegs
      */
-    _powerUpZen(ball) {
+    _powerUpPowerBall(ball) {
         if (!ball) return;
-        ball.isZen = true;
-        this.zenMode = true;
-        this.zenUntil = performance.now() + 10000; // 10 seconds of zen
+        ball.isPowerBall = true;
+        ball.powerBallConversions = 3; // Can convert 3 pegs
     }
 
     /**
@@ -901,10 +922,10 @@ class Game {
             }
         }
 
-        // Give ball electric visual
+        // Give ball brief electric visual (fades back after initial shock)
         if (ball) {
             ball.isLightning = true;
-            ball.lightningUntil = performance.now() + 3000;
+            ball.lightningUntil = performance.now() + 500; // Short duration - fades back quickly
         }
     }
 
