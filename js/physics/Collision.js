@@ -87,16 +87,7 @@ const Collision = {
             collided = true;
             // Track wall bounce for style bonus
             ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
-            const now = performance.now();
-            // Debounce wall sound - minimum 80ms between hits
-            if (!ball.lastWallHitTime || now - ball.lastWallHitTime > 80) {
-                ball.lastWallHitTime = now;
-                try {
-                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                        window.audioManager.playWallHit();
-                    }
-                } catch (e) {}
-            }
+            AudioHelper.playDebounced(ball, 'WallHit', 80);
         }
 
         // Right wall
@@ -106,16 +97,7 @@ const Collision = {
             collided = true;
             // Track wall bounce for style bonus
             ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
-            const now = performance.now();
-            // Debounce wall sound - minimum 80ms between hits
-            if (!ball.lastWallHitTime || now - ball.lastWallHitTime > 80) {
-                ball.lastWallHitTime = now;
-                try {
-                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                        window.audioManager.playWallHit();
-                    }
-                } catch (e) {}
-            }
+            AudioHelper.playDebounced(ball, 'WallHit', 80);
         }
 
         // Chevron bump-outs
@@ -127,16 +109,7 @@ const Collision = {
                     collided = true;
                     // Track wall bounce for style bonus
                     ball.wallBounceCount = (ball.wallBounceCount || 0) + 1;
-                    const now = performance.now();
-                    // Debounce wall sound - minimum 80ms between hits
-                    if (!ball.lastWallHitTime || now - ball.lastWallHitTime > 80) {
-                        ball.lastWallHitTime = now;
-                        try {
-                            if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                                window.audioManager.playWallHit();
-                            }
-                        } catch (e) {}
-                    }
+                    AudioHelper.playDebounced(ball, 'WallHit', 80);
                 }
             }
         }
@@ -231,15 +204,11 @@ const Collision = {
                 ball.vx = -Math.abs(ball.vx) * physics.wallRestitution;
                 // Add slight randomness
                 ball.vx += Utils.randomVariance(0, 0.3);
-                try {
-                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                        window.audioManager.playWallHit();
-                    }
-                } catch (e) {}
+                AudioHelper.play('WallHit');
                 return true;
             }
         }
-        
+
         // Check right side of divider
         if (ball.x - bRadius < dividerRight && ball.x > divider.x) {
             const penetration = dividerRight - (ball.x - bRadius);
@@ -249,11 +218,7 @@ const Collision = {
                 ball.vx = Math.abs(ball.vx) * physics.wallRestitution;
                 // Add slight randomness
                 ball.vx += Utils.randomVariance(0, 0.3);
-                try {
-                    if (window.audioManager && typeof window.audioManager.playWallHit === 'function') {
-                        window.audioManager.playWallHit();
-                    }
-                } catch (e) {}
+                AudioHelper.play('WallHit');
                 return true;
             }
         }
@@ -317,22 +282,8 @@ const Collision = {
                     ball.vx += (Math.random() - 0.5) * 2;
                     ball.vy += (Math.random() - 0.5) * 1;
 
-                    // Debounce rim sound - minimum 100ms between hits
-                    const now = performance.now();
-                    if (!ball.lastRimHitTime || now - ball.lastRimHitTime > 100) {
-                        ball.lastRimHitTime = now;
-                        // Play rim hit sound
-                        try {
-                            if (window.audioManager && typeof window.audioManager.playRimHit === 'function') {
-                                window.audioManager.playRimHit();
-                            }
-                        } catch (e) {}
-
-                        // Trigger screen shake
-                        if (window.game && typeof window.game.triggerShake === 'function') {
-                            window.game.triggerShake(4, 80);
-                        }
-                    }
+                    // Play rim hit sound with debouncing (no shake - too frequent)
+                    AudioHelper.playDebounced(ball, 'RimHit', 100);
 
                     return true;
                 }
@@ -358,22 +309,8 @@ const Collision = {
                     ball.vx += (Math.random() - 0.5) * 2;
                     ball.vy += (Math.random() - 0.5) * 1;
 
-                    // Debounce rim sound - minimum 100ms between hits
-                    const now = performance.now();
-                    if (!ball.lastRimHitTime || now - ball.lastRimHitTime > 100) {
-                        ball.lastRimHitTime = now;
-                        // Play rim hit sound
-                        try {
-                            if (window.audioManager && typeof window.audioManager.playRimHit === 'function') {
-                                window.audioManager.playRimHit();
-                            }
-                        } catch (e) {}
-
-                        // Trigger screen shake
-                        if (window.game && typeof window.game.triggerShake === 'function') {
-                            window.game.triggerShake(4, 80);
-                        }
-                    }
+                    // Play rim hit sound with debouncing (no shake - too frequent)
+                    AudioHelper.playDebounced(ball, 'RimHit', 100);
 
                     return true;
                 }

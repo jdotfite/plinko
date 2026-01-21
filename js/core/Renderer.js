@@ -190,6 +190,9 @@ class Renderer {
             }
         }
 
+        // Render black holes
+        this.renderBlackHoles(game, scale);
+
         // Render score popups
         this.renderScorePopups(game, scale);
 
@@ -533,6 +536,248 @@ class Renderer {
                 continue;
             }
 
+            // Smoke puff effect (when burned peg disappears)
+            if (p.isSmokePuff) {
+                if (age > 400) continue;
+                const progress = age / 400;
+                const alpha = (1 - progress) * 0.6;
+                ctx.save();
+                // Rising smoke puffs
+                for (let i = 0; i < 5; i++) {
+                    const puffAge = progress + i * 0.1;
+                    if (puffAge > 1) continue;
+                    const puffAlpha = alpha * (1 - puffAge);
+                    const rise = puffAge * 25 * scale;
+                    const spread = (Math.sin(i * 1.5) * 8 + i * 3) * scale;
+                    const size = (8 + puffAge * 12) * scale;
+                    ctx.globalAlpha = puffAlpha;
+                    ctx.fillStyle = '#888';
+                    ctx.beginPath();
+                    ctx.arc(p.x * scale + spread, p.y * scale - rise, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+
+            // Splitter split effect - rainbow burst
+            if (p.isSplitterSplit) {
+                if (age > 350) continue;
+                const progress = age / 350;
+                ctx.save();
+                // Rainbow ring burst
+                const ringRadius = progress * 50 * scale;
+                const hue = (now * 0.5) % 360;
+                ctx.globalAlpha = (1 - progress) * 0.8;
+                ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+                ctx.lineWidth = (4 - progress * 3) * scale;
+                ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                ctx.shadowBlur = 15 * scale;
+                ctx.beginPath();
+                ctx.arc(p.x * scale, p.y * scale, ringRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                // Sparkles
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + progress * 2;
+                    const dist = ringRadius * 0.8;
+                    const sparkX = p.x * scale + Math.cos(angle) * dist;
+                    const sparkY = p.y * scale + Math.sin(angle) * dist;
+                    ctx.fillStyle = `hsl(${(hue + i * 60) % 360}, 100%, 70%)`;
+                    ctx.beginPath();
+                    ctx.arc(sparkX, sparkY, (3 - progress * 2) * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+
+            // Firework explosion effect - spectacular multi-color burst
+            if (p.isFireworkExplosion) {
+                if (age > 1200) continue;
+                const progress = age / 1200;
+                const colors = p.sparkColors || ['#FF1493', '#FFD700', '#00FF00', '#00BFFF', '#FF4500'];
+
+                ctx.save();
+
+                // Initial bright flash
+                if (progress < 0.1) {
+                    const flashAlpha = (0.1 - progress) * 10;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x * scale, p.y * scale, 50 * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Expanding sparks
+                const sparkCount = 24;
+                for (let i = 0; i < sparkCount; i++) {
+                    const angle = (i / sparkCount) * Math.PI * 2 + Math.sin(i * 0.5) * 0.3;
+                    const speed = 0.8 + (i % 3) * 0.3;
+                    const dist = p.radius * progress * speed * scale;
+                    const sparkX = p.x * scale + Math.cos(angle) * dist;
+                    const sparkY = p.y * scale + Math.sin(angle) * dist + progress * progress * 50 * scale; // Gravity
+                    const sparkSize = (6 - progress * 5) * scale;
+                    const sparkAlpha = 1 - progress;
+                    const color = colors[i % colors.length];
+
+                    if (sparkSize > 0) {
+                        ctx.globalAlpha = sparkAlpha;
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 15 * scale;
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Trailing sparkles
+                        if (progress < 0.6) {
+                            for (let t = 1; t <= 3; t++) {
+                                const trailX = sparkX - Math.cos(angle) * t * 8 * scale;
+                                const trailY = sparkY - Math.sin(angle) * t * 8 * scale - progress * progress * 20 * scale;
+                                ctx.globalAlpha = sparkAlpha * (1 - t * 0.3);
+                                ctx.beginPath();
+                                ctx.arc(trailX, trailY, sparkSize * (1 - t * 0.2), 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+
+                // Secondary burst wave
+                if (progress > 0.1 && progress < 0.5) {
+                    const waveProgress = (progress - 0.1) / 0.4;
+                    const waveRadius = p.radius * waveProgress * scale;
+                    ctx.globalAlpha = 0.5 * (1 - waveProgress);
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = 3 * scale;
+                    ctx.beginPath();
+                    ctx.arc(p.x * scale, p.y * scale, waveRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+                continue;
+            }
+
+            // Black hole form effect
+            if (p.isBlackHoleForm) {
+                if (age > 600) continue;
+                const progress = age / 600;
+                ctx.save();
+                ctx.globalAlpha = 1 - progress;
+                ctx.strokeStyle = '#4B0082';
+                ctx.lineWidth = 3 * scale;
+                ctx.shadowColor = '#4B0082';
+                ctx.shadowBlur = 20 * scale;
+                // Imploding rings
+                for (let i = 0; i < 3; i++) {
+                    const ringProgress = (progress + i * 0.2) % 1;
+                    const ringRadius = (1 - ringProgress) * 80 * scale;
+                    ctx.globalAlpha = (1 - ringProgress) * 0.6;
+                    ctx.beginPath();
+                    ctx.arc(p.x * scale, p.y * scale, ringRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+                continue;
+            }
+
+            // Black hole collapse effect
+            if (p.isBlackHoleCollapse) {
+                if (age > 500) continue;
+                const progress = age / 500;
+                ctx.save();
+                // Bright outward explosion
+                const burstAlpha = 1 - progress;
+                ctx.fillStyle = `rgba(138, 43, 226, ${burstAlpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(p.x * scale, p.y * scale, progress * 100 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                // White flash
+                if (progress < 0.2) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${(0.2 - progress) * 5})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x * scale, p.y * scale, 40 * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+
+            // Anti-gravity activation effect
+            if (p.isAntiGravityActivation) {
+                if (age > 800) continue;
+                const progress = age / 800;
+                ctx.save();
+                ctx.globalAlpha = 1 - progress;
+                // Rising particles
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i / 12) * Math.PI * 2;
+                    const dist = 20 + progress * 60;
+                    const particleX = p.x * scale + Math.cos(angle) * dist * scale * 0.5;
+                    const particleY = p.y * scale - progress * 80 * scale + Math.sin(angle) * dist * scale * 0.3;
+                    ctx.fillStyle = '#7B68EE';
+                    ctx.shadowColor = '#7B68EE';
+                    ctx.shadowBlur = 10 * scale;
+                    ctx.beginPath();
+                    ctx.arc(particleX, particleY, (4 - progress * 3) * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                // "ANTI-GRAVITY" text
+                ctx.font = `bold ${16 * scale}px system-ui`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#E6E6FA';
+                ctx.strokeStyle = '#4B0082';
+                ctx.lineWidth = 3 * scale;
+                ctx.strokeText('ANTI-GRAVITY', p.x * scale, (p.y - 40 - progress * 30) * scale);
+                ctx.fillText('ANTI-GRAVITY', p.x * scale, (p.y - 40 - progress * 30) * scale);
+                ctx.restore();
+                continue;
+            }
+
+            // Bouncy pulse effect
+            if (p.isBouncyPulse) {
+                if (age > 300) continue;
+                const progress = age / 300;
+                const energy = p.energy || 1.0;
+                ctx.save();
+                ctx.globalAlpha = (1 - progress) * 0.8;
+                ctx.strokeStyle = '#32CD32';
+                ctx.lineWidth = (3 + energy) * scale;
+                ctx.shadowColor = '#32CD32';
+                ctx.shadowBlur = 15 * scale;
+                ctx.beginPath();
+                ctx.arc(p.x * scale, p.y * scale, (20 + progress * 40 * energy) * scale, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                continue;
+            }
+
+            // Firework launch effect
+            if (p.isFireworkLaunch) {
+                if (age > 400) continue;
+                const progress = age / 400;
+                ctx.save();
+                // Upward thrust trail
+                for (let i = 0; i < 8; i++) {
+                    const trailProgress = (progress + i * 0.08) % 1;
+                    const trailY = p.y * scale + trailProgress * 60 * scale;
+                    const trailX = p.x * scale + (Math.sin(i * 2 + age * 0.01) * 10 * scale);
+                    const trailAlpha = (1 - trailProgress) * 0.8;
+                    const trailSize = (8 - trailProgress * 6) * scale;
+
+                    ctx.globalAlpha = trailAlpha;
+                    ctx.fillStyle = i % 2 === 0 ? '#FFD700' : '#FF4500';
+                    ctx.shadowColor = '#FF4500';
+                    ctx.shadowBlur = 15 * scale;
+                    ctx.beginPath();
+                    ctx.arc(trailX, trailY, trailSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+
             // Free Ball popup
             if (p.isFreeBall) {
                 const duration = 1200;
@@ -687,6 +932,140 @@ class Renderer {
                                  mag.remaining > 0 && !game.matchOver;
 
             mag.render(ctx, scale, cannonLoaded);
+        }
+    }
+
+    renderBlackHoles(game, scale) {
+        if (!game.blackHoles || game.blackHoles.length === 0) return;
+        const ctx = this.ctx;
+        const now = performance.now();
+
+        for (const bh of game.blackHoles) {
+            const age = now - bh.birth;
+            const x = bh.x * scale;
+            const y = bh.y * scale;
+            const maxRadius = bh.radius * scale;
+
+            ctx.save();
+
+            if (bh.phase === 'forming') {
+                // Forming: expanding dark circle with ripples
+                const progress = Math.min(1, age / 300);
+                const radius = maxRadius * 0.3 * progress;
+
+                // Outer ripple
+                ctx.strokeStyle = `rgba(75, 0, 130, ${0.5 * (1 - progress)})`;
+                ctx.lineWidth = 3 * scale;
+                ctx.beginPath();
+                ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Core forming
+                const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                grad.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
+                grad.addColorStop(0.7, 'rgba(25, 25, 112, 0.7)');
+                grad.addColorStop(1, 'rgba(75, 0, 130, 0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (bh.phase === 'active') {
+                // Active: swirling vortex with particles being pulled in
+                const rotation = now * 0.002;
+                const pulse = Math.sin(now * 0.005) * 0.1 + 0.9;
+                const activeRadius = maxRadius * 0.4 * pulse;
+
+                // Gravitational distortion rings
+                ctx.strokeStyle = 'rgba(138, 43, 226, 0.3)';
+                ctx.lineWidth = 2 * scale;
+                for (let i = 0; i < 4; i++) {
+                    const ringRadius = activeRadius + (i * 25 * scale);
+                    const alpha = 0.4 - (i * 0.1);
+                    ctx.globalAlpha = alpha;
+                    ctx.setLineDash([8 * scale, 8 * scale]);
+                    ctx.beginPath();
+                    ctx.arc(x, y, ringRadius, rotation + i * 0.5, rotation + i * 0.5 + Math.PI * 1.8);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+
+                // Swirling matter being pulled in
+                for (let i = 0; i < 8; i++) {
+                    const angle = rotation * 2 + (i / 8) * Math.PI * 2;
+                    const spiralProgress = ((now * 0.001 + i * 0.125) % 1);
+                    const spiralRadius = activeRadius * (1.5 - spiralProgress);
+                    const particleX = x + Math.cos(angle * (2 - spiralProgress)) * spiralRadius;
+                    const particleY = y + Math.sin(angle * (2 - spiralProgress)) * spiralRadius;
+                    const particleSize = (3 + (1 - spiralProgress) * 4) * scale;
+
+                    ctx.globalAlpha = spiralProgress * 0.8;
+                    ctx.fillStyle = '#9370DB';
+                    ctx.shadowColor = '#9370DB';
+                    ctx.shadowBlur = 10 * scale;
+                    ctx.beginPath();
+                    ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+
+                // Event horizon (dark center)
+                const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, activeRadius);
+                coreGrad.addColorStop(0, '#000000');
+                coreGrad.addColorStop(0.5, '#0a0a1a');
+                coreGrad.addColorStop(0.8, 'rgba(25, 25, 112, 0.8)');
+                coreGrad.addColorStop(1, 'rgba(75, 0, 130, 0)');
+                ctx.fillStyle = coreGrad;
+                ctx.beginPath();
+                ctx.arc(x, y, activeRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Bright accretion disk edge
+                ctx.strokeStyle = 'rgba(186, 85, 211, 0.6)';
+                ctx.lineWidth = 3 * scale;
+                ctx.beginPath();
+                ctx.arc(x, y, activeRadius * 0.9, 0, Math.PI * 2);
+                ctx.stroke();
+
+            } else if (bh.phase === 'collapsing') {
+                // Collapsing: imploding with bright flash
+                const collapseAge = age - (bh.duration - 500);
+                const progress = Math.min(1, collapseAge / 500);
+                const collapseRadius = maxRadius * 0.4 * (1 - progress);
+
+                // Implosion effect - bright ring shrinking
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * (1 - progress)})`;
+                ctx.lineWidth = (5 - progress * 4) * scale;
+                ctx.shadowColor = '#FFFFFF';
+                ctx.shadowBlur = 20 * scale;
+                ctx.beginPath();
+                ctx.arc(x, y, collapseRadius + 20 * scale * (1 - progress), 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Flash at center
+                if (progress < 0.3) {
+                    const flashAlpha = (0.3 - progress) * 3;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 30 * scale * (1 - progress * 2), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.shadowBlur = 0;
+
+                // Dark core shrinking
+                const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, collapseRadius);
+                coreGrad.addColorStop(0, '#000000');
+                coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = coreGrad;
+                ctx.beginPath();
+                ctx.arc(x, y, collapseRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
         }
     }
 

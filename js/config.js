@@ -125,15 +125,18 @@ const CONFIG = {
     // Power-up definitions
     POWERUPS: {
         multiball: { name: 'Multiball', desc: 'Spawns 2 extra balls', color: '#00FF55' },
-        fireball: { name: 'Fireball', desc: 'Burns through 8 pegs', color: '#FF4500' },
+        fireball: { name: 'Fireball', desc: 'Burns through all pegs', color: '#FF4500' },
         spooky: { name: 'Spooky Ball', desc: 'Returns to top if falls out', color: '#9B59B6' },
         zen: { name: 'Zen Ball', desc: 'Extended trajectory guide', color: '#3498DB' },
-        thunder: { name: 'Thunder', desc: 'Lightning chains to nearby pegs', color: '#00FFFF' },
-        sniper: { name: 'Sniper', desc: 'Precise aim, no randomness', color: '#E74C3C' },
+        lightning: { name: 'Lightning', desc: 'Chains to nearby pegs', color: '#00FFFF' },
         ghost: { name: 'Ghost', desc: 'Phases through pegs, still scores', color: '#BDC3C7' },
         magnet: { name: 'Magnet', desc: 'Curves toward orange pegs', color: '#E91E63' },
         bomb: { name: 'Space Blast', desc: 'Explodes nearby pegs on hit', color: '#FF5722' },
-        splitter: { name: 'Splitter', desc: 'Splits on each peg hit (3x max)', color: '#8E44AD' }
+        splitter: { name: 'Splitter', desc: 'Splits into 2, then 4 rainbow balls', color: '#8E44AD' },
+        firework: { name: 'Firework', desc: 'Rockets up and explodes in the sky', color: '#FF1493' },
+        antigravity: { name: 'Anti-Gravity', desc: 'Ball floats upward like a rocket', color: '#7B68EE' },
+        bouncy: { name: 'Bouncy Ball', desc: 'Gains energy with each bounce', color: '#32CD32' },
+        blackhole: { name: 'Black Hole', desc: 'Creates a gravity well', color: '#191970' }
     },
 
     // Magazine (skeeball-style ball slot)

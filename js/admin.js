@@ -92,9 +92,7 @@
             if (typeof obj.masterVolume === 'number' && audioVolume) {
                 audioVolume.value = String(obj.masterVolume);
                 if (audioVolumeValue) audioVolumeValue.textContent = `${Math.round(obj.masterVolume * 100)}%`;
-                if (window.audioManager && typeof window.audioManager.setMasterVolume === 'function') {
-                    window.audioManager.setMasterVolume(obj.masterVolume);
-                }
+                AudioHelper.setMasterVolume(obj.masterVolume);
             }
             if (typeof obj.gravity === 'number' && gravityRange) {
                 gravityRange.value = String(obj.gravity);
@@ -162,9 +160,7 @@
         audioVolume.addEventListener('input', (e) => {
             const v = parseFloat(e.target.value);
             if (audioVolumeValue) audioVolumeValue.textContent = `${Math.round(v * 100)}%`;
-            if (window.audioManager && typeof window.audioManager.setMasterVolume === 'function') {
-                window.audioManager.setMasterVolume(v);
-            }
+            AudioHelper.setMasterVolume(v);
             saveSettings();
         });
     }
@@ -318,9 +314,7 @@
         if (audioVolume) {
             audioVolume.value = '1';
             if (audioVolumeValue) audioVolumeValue.textContent = '100%';
-            if (window.audioManager && typeof window.audioManager.setMasterVolume === 'function') {
-                window.audioManager.setMasterVolume(1);
-            }
+            AudioHelper.setMasterVolume(1);
         }
         if (gravityRange) {
             gravityRange.value = '0.45';

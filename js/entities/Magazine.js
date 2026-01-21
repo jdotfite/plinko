@@ -113,11 +113,14 @@ class Magazine {
             lastDropTime: 0,
             lastRiseIndex: -1
         };
-        // Initialize offsets - all balls start below their target position (rising up)
+        // Initialize offsets - each ball starts at entry point (below magazine)
+        // Ball 0 (top slot) has longest travel, ball total-1 (bottom) has shortest
         this.ballOffsets = [];
+        const cfg = CONFIG.MAGAZINE;
         for (let i = 0; i < this.total; i++) {
-            // All balls start way below (will rise up one by one)
-            this.ballOffsets.push(300);
+            // Entry offset: distance from slot i to bottom entry point
+            const entryOffset = (this.total - 1 - i) * cfg.spacing + 50;
+            this.ballOffsets.push(entryOffset);
         }
     }
 
@@ -129,17 +132,23 @@ class Magazine {
             const phase = this.loadingAnimation.phase;
 
             if (phase === 'rising') {
-                // Phase 1: Balls rise into magazine one by one from the bottom
-                const riseInterval = 60; // ms between each ball rising
+                // Phase 1: Balls roll into magazine one by one from the bottom
+                // Ball 0 (top slot) enters first, then ball 1, etc.
+                // Each ball enters from below and rolls up to its slot
+                const riseInterval = 60; // ms between each ball starting (SAME timing)
                 const riseDuration = 200; // ms for each ball to rise into place
 
-                // Determine how many balls should have started rising (from bottom up)
+                // Determine how many balls should have started rising
                 const ballsToStart = Math.min(this.total, Math.floor(elapsed / riseInterval) + 1);
+                const cfg = CONFIG.MAGAZINE;
 
                 let allRisen = true;
                 for (let i = 0; i < this.total; i++) {
-                    // Reverse order: bottom ball (index total-1) rises first
-                    const riseOrder = (this.total - 1) - i;
+                    // Normal order: top ball (index 0) rises first, then index 1, etc.
+                    const riseOrder = i;
+
+                    // Entry offset: distance from slot i to bottom entry point
+                    const entryOffset = (this.total - 1 - i) * cfg.spacing + 50;
 
                     if (riseOrder < ballsToStart) {
                         // This ball has started rising
@@ -152,16 +161,20 @@ class Magazine {
                         // Small bounce at the end (upward overshoot)
                         const bounce = progress >= 0.8 ? Math.sin((progress - 0.8) * Math.PI * 5) * -3 * (1 - progress) : 0;
 
-                        this.ballOffsets[i] = 300 * (1 - eased) + bounce;
+                        // Animate from entry point to slot position
+                        this.ballOffsets[i] = entryOffset * (1 - eased) + bounce;
 
-                        // Play clack sound when ball settles (crosses threshold)
+                        // Play clack sound when ball settles (SAME timing as before)
+                        // Pitch ASCENDS as magazine fills (low → high) for "building up" feel
                         if (progress >= 0.85 && this.loadingAnimation.lastRiseIndex < riseOrder) {
                             this.loadingAnimation.lastRiseIndex = riseOrder;
-                            this._playClackSound(this.total - 1 - riseOrder);
+                            this._playClackSound(riseOrder);
                         }
 
                         if (progress < 1) allRisen = false;
                     } else {
+                        // Ball hasn't started yet - keep at entry position
+                        this.ballOffsets[i] = entryOffset;
                         allRisen = false;
                     }
                 }
@@ -404,35 +417,23 @@ class Magazine {
      * Play clack sound when ball drops into place
      */
     _playClackSound(index) {
-        try {
-            if (window.audioManager && typeof window.audioManager.playBallClack === 'function') {
-                // Pitch varies slightly for each ball (higher pitch for later balls)
-                const pitch = 0.9 + (index / this.total) * 0.3;
-                window.audioManager.playBallClack({ pitch });
-            }
-        } catch (e) {}
+        // Pitch varies slightly for each ball (higher pitch for later balls)
+        const pitch = 0.9 + (index / this.total) * 0.3;
+        AudioHelper.play('BallClack', { pitch });
     }
 
     /**
      * Play settle sound when all balls are in magazine
      */
     _playSettleSound() {
-        try {
-            if (window.audioManager && typeof window.audioManager.playMagazineSettle === 'function') {
-                window.audioManager.playMagazineSettle();
-            }
-        } catch (e) {}
+        AudioHelper.play('MagazineSettle');
     }
 
     /**
      * Play sound when ball loads into cannon
      */
     _playCannonLoadSound() {
-        try {
-            if (window.audioManager && typeof window.audioManager.playCannonLoad === 'function') {
-                window.audioManager.playCannonLoad();
-            }
-        } catch (e) {}
+        AudioHelper.play('CannonLoad');
     }
 
     /**

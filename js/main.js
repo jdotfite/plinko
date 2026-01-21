@@ -45,10 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Bottom UI Panel - position at bottom of canvas and SCALE with canvas
         const bottomPanel = document.getElementById('bottom-ui-panel');
+        const bottomContent = document.querySelector('.bottom-ui-content');
         if (bottomPanel) {
             const canvasBottom = rect.bottom;
             const canvasLeft = rect.left;
-            const canvasWidth = rect.width;
 
             // Scale the UI panel proportionally with the canvas
             // Base width is 1080px (CONFIG.TARGET_WIDTH), so scale factor matches renderer
@@ -58,8 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
             bottomPanel.style.maxWidth = '1080px';
             bottomPanel.style.transformOrigin = 'bottom left';
             bottomPanel.style.transform = `scale(${scale})`;
-            // Position accounts for scaled height
-            bottomPanel.style.bottom = `${window.innerHeight - canvasBottom}px`;
+            // Always pin to viewport bottom
+            bottomPanel.style.bottom = '0';
+
+            // Calculate gap between canvas bottom and viewport bottom, add as padding
+            const gapToBottom = window.innerHeight - canvasBottom;
+            // Convert to unscaled pixels for the padding (since panel is scaled)
+            const extraPadding = Math.max(0, gapToBottom / scale);
+            if (bottomContent) {
+                bottomContent.style.paddingBottom = `${extraPadding + 10}px`;
+            }
         }
     }
 
@@ -190,36 +198,74 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalContent = document.querySelector('.round-modal-content');
         const levelEl = document.getElementById('modal-level');
         const titleEl = document.getElementById('round-modal-text');
+        const scoreEl = document.getElementById('modal-score');
+        const targetsEl = document.getElementById('modal-targets');
         const ballsEl = document.getElementById('modal-balls');
-        const medallionLetter = document.querySelector('.medallion-letter');
         const playBtn = document.getElementById('round-modal-ok');
+        const retryBtn = document.getElementById('round-modal-retry');
+        const stars = document.querySelectorAll('.neu-star');
 
         // Toggle win state class for celebration styling
         if (modalContent) {
             modalContent.classList.toggle('win-state', isWin);
         }
 
-        if (levelEl) levelEl.textContent = isWin ? 'Complete!' : `Level ${levelNum}`;
+        // Update level indicator
+        if (levelEl) {
+            levelEl.textContent = isWin ? 'CLEARED!' : `LEVEL ${levelNum}`;
+        }
+
+        // Update title
         if (titleEl) titleEl.textContent = title;
-        if (ballsEl && window.game) {
-            ballsEl.textContent = `${window.game.shotsPerPlayer} balls to use`;
+
+        // Update stats
+        if (window.game) {
+            if (scoreEl) {
+                scoreEl.textContent = isWin
+                    ? window.game.players[0].score.toLocaleString()
+                    : '0';
+            }
+            if (targetsEl) {
+                targetsEl.textContent = isWin
+                    ? '0'
+                    : String(window.game.orangePegsRemaining || 25);
+            }
+            if (ballsEl) {
+                ballsEl.textContent = isWin
+                    ? '0'
+                    : String(window.game.shotsPerPlayer);
+            }
         }
-        if (medallionLetter) {
-            medallionLetter.textContent = isWin ? '!' : levelNum;
-        }
+
+        // Update stars - earn stars based on win
+        stars.forEach((star, idx) => {
+            // In win state, light up stars (could be based on score thresholds later)
+            star.classList.toggle('earned', isWin);
+        });
+
+        // Update buttons
         if (playBtn) {
             const btnSpan = playBtn.querySelector('span');
             if (btnSpan) btnSpan.textContent = isWin ? 'NEXT' : 'PLAY';
+        }
+
+        // Show retry button after round ends (win or loss), hide on initial
+        // isWin indicates round is over, so show retry option
+        if (retryBtn) {
+            retryBtn.classList.toggle('hidden', !isWin);
         }
     };
 
     // Match modal wiring
     const modal = document.getElementById('round-modal');
     const okBtn = document.getElementById('round-modal-ok');
+    const retryBtn = document.getElementById('round-modal-retry');
     if (modal && okBtn) {
         // Update modal content for initial display
         window.updateModalContent(1, 'Ready to Play!');
         modal.classList.remove('hidden');
+
+        // Play/Next button handler
         okBtn.onclick = () => {
             modal.classList.add('hidden');
             // Start magazine loading animation after modal is dismissed
@@ -227,7 +273,150 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.game.startMagazineAnimation();
             }
         };
+
+        // Retry button handler (restart same level)
+        if (retryBtn) {
+            retryBtn.onclick = () => {
+                modal.classList.add('hidden');
+                if (window.game) {
+                    window.game.resetMatch();
+                    window.updateModalContent(window.game.currentLevelIndex + 1, 'Ready to Play!');
+                    window.game.startMagazineAnimation();
+                }
+            };
+        }
     }
 
     console.log('Peggle-style game ready. Clear all orange pegs to win!');
+
+    // =============================================
+    // LEVEL EDITOR SETUP
+    // =============================================
+
+    // Initialize Level Editor
+    if (window.LevelEditor && window.game) {
+        window.levelEditor = new LevelEditor(window.game);
+
+        // Admin panel button to open editor
+        const editorBtn = document.getElementById('admin-editor-btn');
+        if (editorBtn) {
+            editorBtn.addEventListener('click', () => {
+                // Close admin panel
+                const panel = document.getElementById('admin-panel');
+                const overlay = document.getElementById('admin-overlay');
+                if (panel) panel.classList.add('hidden');
+                if (overlay) overlay.classList.add('hidden');
+
+                // Open editor
+                window.levelEditor.activate();
+            });
+        }
+
+        // Editor panel buttons
+        document.getElementById('editor-close')?.addEventListener('click', () => {
+            window.levelEditor.deactivate();
+        });
+
+        document.getElementById('editor-test')?.addEventListener('click', () => {
+            window.levelEditor.startTestPlay();
+        });
+
+        document.getElementById('editor-stop-test')?.addEventListener('click', () => {
+            window.levelEditor.stopTestPlay();
+        });
+
+        // Tool buttons
+        document.querySelectorAll('.editor-tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.dataset.tool;
+                if (tool) {
+                    window.levelEditor._setTool(tool);
+                }
+            });
+        });
+
+        // Level name input
+        document.getElementById('editor-level-name')?.addEventListener('input', (e) => {
+            window.levelEditor.levelName = e.target.value;
+        });
+
+        // Star threshold inputs
+        document.getElementById('editor-star1')?.addEventListener('change', (e) => {
+            window.levelEditor.starThresholds.star1 = parseInt(e.target.value) || 20000;
+        });
+        document.getElementById('editor-star2')?.addEventListener('change', (e) => {
+            window.levelEditor.starThresholds.star2 = parseInt(e.target.value) || 22500;
+        });
+        document.getElementById('editor-star3')?.addEventListener('change', (e) => {
+            window.levelEditor.starThresholds.star3 = parseInt(e.target.value) || 25000;
+        });
+
+        // Action buttons
+        document.getElementById('editor-clear')?.addEventListener('click', () => {
+            window.levelEditor.clearAll();
+        });
+
+        document.getElementById('editor-mirror')?.addEventListener('click', () => {
+            window.levelEditor.mirrorHorizontal();
+        });
+
+        // Save/Load buttons
+        document.getElementById('editor-new')?.addEventListener('click', () => {
+            window.levelEditor.newLevel();
+        });
+
+        document.getElementById('editor-load')?.addEventListener('click', () => {
+            const select = document.getElementById('editor-level-select');
+            if (select && select.value) {
+                window.levelEditor.loadLevel(select.value);
+            }
+        });
+
+        document.getElementById('editor-save')?.addEventListener('click', () => {
+            const nameInput = document.getElementById('editor-level-name');
+            const name = nameInput?.value || 'Untitled Level';
+            window.levelEditor.saveLevel(name);
+            alert(`Level "${name}" saved!`);
+        });
+
+        document.getElementById('editor-delete')?.addEventListener('click', () => {
+            window.levelEditor.deleteLevel();
+        });
+
+        document.getElementById('editor-export')?.addEventListener('click', () => {
+            window.levelEditor.exportLevel();
+        });
+
+        document.getElementById('editor-import')?.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                window.levelEditor.importLevel(e.target.files[0]);
+                e.target.value = ''; // Reset file input
+            }
+        });
+
+        // Level select dropdown
+        document.getElementById('editor-level-select')?.addEventListener('change', (e) => {
+            if (e.target.value) {
+                window.levelEditor.loadLevel(e.target.value);
+            }
+        });
+
+        // Keyboard shortcut to toggle editor (E key when not playing)
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                // Don't toggle if typing in an input
+                if (document.activeElement.tagName === 'INPUT' ||
+                    document.activeElement.tagName === 'TEXTAREA') {
+                    return;
+                }
+                // Don't toggle during active gameplay
+                if (window.game && window.game.state === CONFIG.STATES.BALL_ACTIVE) {
+                    return;
+                }
+                window.levelEditor.toggle();
+            }
+        });
+
+        console.log('Level Editor initialized. Press E to toggle.');
+    }
 });

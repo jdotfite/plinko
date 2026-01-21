@@ -28,6 +28,70 @@ class Peg {
         let alpha = 1;
         let flashIntensity = 0;
 
+        // Handle burning animation (fireball effect)
+        if (this.isBurning && this.burnStartTime) {
+            const burnDuration = 400;
+            const burnAge = now - this.burnStartTime;
+            const burnProgress = Math.min(1, burnAge / burnDuration);
+
+            ctx.save();
+
+            // Peg shrinks as it burns
+            const shrinkFactor = 1 - burnProgress * 0.5;
+            r = baseR * shrinkFactor;
+
+            // Flickering flame effect
+            const flicker = Math.sin(now * 0.03 + this.x * 0.1) * 0.3 + 0.7;
+
+            // Outer flame glow
+            ctx.shadowColor = '#FF4500';
+            ctx.shadowBlur = (25 + flicker * 15) * scale;
+
+            // Draw flame circles around the peg
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 + now * 0.01;
+                const dist = r * 0.7;
+                const flameX = x + Math.cos(angle) * dist;
+                const flameY = y + Math.sin(angle) * dist - 8 * scale * flicker;
+                const flameSize = (8 + flicker * 4) * scale * (1 - burnProgress * 0.3);
+
+                ctx.globalAlpha = 0.8 * (1 - burnProgress * 0.5);
+                ctx.fillStyle = i % 2 === 0 ? '#FF4500' : '#FFD700';
+                ctx.beginPath();
+                ctx.arc(flameX, flameY, flameSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Rising smoke
+            ctx.globalAlpha = 0.4 * (1 - burnProgress);
+            ctx.fillStyle = '#666';
+            for (let i = 0; i < 3; i++) {
+                const smokeY = y - r - (burnProgress * 30 + i * 10) * scale;
+                const smokeX = x + Math.sin(now * 0.005 + i) * 8 * scale;
+                ctx.beginPath();
+                ctx.arc(smokeX, smokeY, (5 + i * 2) * scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+
+            // Draw the charring peg
+            const charLevel = burnProgress * 0.8;
+            const baseColor = this.pegType === 'orange' ? [255, 107, 0] : [60, 60, 60];
+            const charR = Math.round(baseColor[0] * (1 - charLevel));
+            const charG = Math.round(baseColor[1] * (1 - charLevel));
+            const charB = Math.round(baseColor[2] * (1 - charLevel));
+
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(1, r), 0, Math.PI * 2);
+            ctx.fillStyle = `rgb(${charR}, ${charG}, ${charB})`;
+            ctx.fill();
+
+            ctx.restore();
+            return; // Don't render normal peg
+        }
+
         // Handle pop animation for hit pegs
         if (this.isHit) {
             const elapsed = now - this.hitTime;

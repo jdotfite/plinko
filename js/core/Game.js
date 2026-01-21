@@ -56,7 +56,10 @@ class Game {
         this.powerUpPending = false;      // Power-up ready to trigger next shot
 
         // Power-up settings (which ones are enabled)
-        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'zen', 'thunder', 'sniper', 'ghost', 'magnet', 'bomb', 'splitter'];
+        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'zen', 'lightning', 'ghost', 'magnet', 'bomb', 'splitter', 'firework', 'antigravity', 'bouncy', 'blackhole'];
+
+        // Black holes active in the game
+        this.blackHoles = [];
 
         // Game mode settings
         this.twoPlayerMode = false;       // Default to single player
@@ -107,7 +110,7 @@ class Game {
             width: 200,   // Wider mouth
             height: 60,   // Taller tube
             speed: 3.0,   // Faster movement
-            y: this.board.innerBottom - 75  // Moved down 155px
+            y: this.board.innerBottom - 95  // Moved up 20px
         });
 
         // Fever slots - score multiplier slots during Extreme Fever
@@ -134,7 +137,26 @@ class Game {
      */
     start() {
         this.lastTime = performance.now();
+        this.paused = false;
         requestAnimationFrame((time) => this.gameLoop(time));
+    }
+
+    /**
+     * Pause the game loop
+     */
+    pause() {
+        this.paused = true;
+    }
+
+    /**
+     * Resume the game loop
+     */
+    resume() {
+        if (this.paused) {
+            this.paused = false;
+            this.lastTime = performance.now();
+            requestAnimationFrame((time) => this.gameLoop(time));
+        }
     }
 
     /**
@@ -266,6 +288,9 @@ class Game {
     }
 
     gameLoop(currentTime) {
+        // Don't run if paused
+        if (this.paused) return;
+
         const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
         const now = performance.now();
@@ -325,6 +350,12 @@ class Game {
         // Process exploding pegs from bomb power-up
         this._processExplodingPegs();
 
+        // Update black holes
+        this._updateBlackHoles();
+
+        // Process burning pegs (fireball effect)
+        this._processBurningPegs();
+
         // Check zen mode timeout
         if (this.zenMode && performance.now() > this.zenUntil) {
             this.zenMode = false;
@@ -340,9 +371,9 @@ class Game {
                 // Update physics
                 ball.update(dt, this.tuning);
 
-                // Check thunder timeout
-                if (ball.isThunder && performance.now() > ball.thunderUntil) {
-                    ball.isThunder = false;
+                // Check lightning timeout
+                if (ball.isLightning && performance.now() > ball.lightningUntil) {
+                    ball.isLightning = false;
                 }
 
                 // Check peg collisions
@@ -354,13 +385,19 @@ class Game {
                     if (collision) {
                         // Handle different power-up collision behaviors
                         let shouldBounce = true;
+                        let shouldHitPeg = true;
 
-                        // Fireball burns through pegs
-                        if (ball.isFireball && ball.fireballHits < ball.maxFireballHits) {
-                            ball.fireballHits++;
+                        // Fireball burns through ALL pegs - stays on fire
+                        if (ball.isFireball) {
                             shouldBounce = false;
-                            if (ball.fireballHits >= ball.maxFireballHits) {
-                                ball.isFireball = false;
+                            shouldHitPeg = false; // Don't hit immediately - let it burn
+
+                            // Start burning animation on peg
+                            if (!peg.isBurning && !peg.isHit) {
+                                peg.isBurning = true;
+                                peg.burnStartTime = performance.now();
+                                // Play burn sound
+                                AudioHelper.play('PegHit', { pitch: 1.5 });
                             }
                         }
 
@@ -373,16 +410,23 @@ class Game {
                             }
                         }
 
+                        // Bouncy ball gains energy on peg hits
+                        if (ball.isBouncy) {
+                            this._handleBouncyBounce(ball);
+                        }
+
                         // Resolve collision if needed
                         if (shouldBounce) {
                             Collision.resolveBallPeg(ball, collision);
                         }
 
                         // Handle peg hit (scoring, effects)
-                        this._handlePegHit(peg, ball);
+                        if (shouldHitPeg) {
+                            this._handlePegHit(peg, ball);
+                        }
 
-                        // Splitter splits on peg hit
-                        if (ball.isSplitter && ball.splitsRemaining > 0) {
+                        // Splitter splits on peg hit (max 4 balls total)
+                        if (ball.isSplitter && ball.canSplit && (this.splitterBallCount || 1) < 4) {
                             this._handleSplitterSplit(ball);
                         }
 
@@ -398,6 +442,10 @@ class Game {
                 const wallHit = Collision.ballToWalls(ball, this.board, this.slotDividers);
                 if (wallHit) {
                     this.combo = 0;
+                    // Bouncy ball gains energy on wall bounces too
+                    if (ball.isBouncy) {
+                        this._handleBouncyBounce(ball);
+                    }
                 }
 
                 // During Extreme Fever, use fever slots instead of goal mouth
@@ -420,6 +468,13 @@ class Game {
 
                 // Ball fell out of bounds (missed the goal mouth/fever slots)
                 if (ball.y > this.board.innerBottom + 100) {
+                    // Firework ball rockets back up!
+                    if (ball.isFirework && !ball.fireworkUsed) {
+                        if (this._handleFireworkLaunch(ball)) {
+                            continue; // Ball is now rocketing up
+                        }
+                    }
+
                     // Spooky ball gets a second chance
                     if (ball.isSpooky && !ball.spookyUsed) {
                         if (this._handleSpookyRespawn(ball)) {
@@ -427,6 +482,16 @@ class Game {
                         }
                     }
                     this._handleBallLanding(ball, null);
+                }
+
+                // Firework at peak - explode when velocity reverses or near first peg row
+                if (ball.isFirework && ball.fireworkPhase === 'launching') {
+                    // Explode when ball starts falling again or reaches first peg row
+                    const maxHeight = CONFIG.PEGS.startY - 20;
+                    if (ball.vy > 0 || ball.y < maxHeight) {
+                        this._handleFireworkExplosion(ball);
+                        continue;
+                    }
                 }
             }
         }
@@ -498,11 +563,7 @@ class Game {
         b.muzzleDist = this.cannon.barrelLength * 0.95;
         b.launch(angle, power);
         this.balls.push(b);
-        try {
-            if (window.audioManager && typeof window.audioManager.playCannon === 'function') {
-                window.audioManager.playCannon();
-            }
-        } catch (e) {}
+        AudioHelper.play('Cannon');
 
         this._notifyHud();
     }
@@ -539,15 +600,13 @@ class Game {
             this.shotStats.maxCombo = this.combo;
         }
 
-        // Screen shake at combo milestones
-        if (this.combo === 5) {
-            this.triggerShake(4, 150);
-        } else if (this.combo === 10) {
-            this.triggerShake(6, 200);
-        } else if (this.combo === 15) {
-            this.triggerShake(8, 250);
-        } else if (this.combo >= 20 && this.combo % 5 === 0) {
-            this.triggerShake(10, 300);
+        // Screen shake at combo milestones (less frequent)
+        if (this.combo === 10) {
+            this.triggerShake(5, 150);
+        } else if (this.combo === 20) {
+            this.triggerShake(7, 200);
+        } else if (this.combo >= 30 && this.combo % 10 === 0) {
+            this.triggerShake(9, 250);
         }
 
         // Peggle-style scoring based on peg type
@@ -577,30 +636,25 @@ class Game {
             peg.hitTime = performance.now();
             peg.lastHitTime = peg.hitTime;
 
-            // Score popup at peg location
+            // Score popup at peg location (ensure value is always a number)
             this.scorePopups.push({
                 x: peg.x,
                 y: peg.y,
-                value: points,
+                value: points || 0,
                 birth: performance.now(),
                 isOrange: peg.pegType === 'orange'
             });
 
-            // Calculate pitch scaling based on combo (each hit raises pitch)
-            // Semitone = 2^(1/12) ≈ 1.059, we'll go up ~2 semitones per hit
-            const pitchFactor = Math.pow(1.08, Math.min(this.combo, 15));
+            // Calculate pitch scaling based on combo (logarithmic curve)
+            // Rises quickly at first, then flattens - never gets shrill
+            // Combo 0→1.0, 5→1.35, 10→1.48, 20→1.58 (caps ~1.6x)
+            const pitchFactor = 1 + Math.log10(1 + this.combo * 0.5) * 0.5;
             const panValue = ((peg.x - this.board.innerLeft) / this.board.innerWidth) * 2 - 1;
 
             // Track orange pegs
             if (peg.pegType === 'orange') {
                 this.orangePegsRemaining = Math.max(0, this.orangePegsRemaining - 1);
-
-                // Play orange peg sound with pitch scaling
-                try {
-                    if (window.audioManager && typeof window.audioManager.playOrangePegHit === 'function') {
-                        window.audioManager.playOrangePegHit({ pitch: pitchFactor, pan: panValue * 0.3 });
-                    }
-                } catch (e) {}
+                AudioHelper.play('OrangePegHit', { pitch: pitchFactor, pan: panValue * 0.3 });
 
                 // Trigger Extreme Fever on last orange peg
                 if (this.orangePegsRemaining === 0) {
@@ -609,23 +663,10 @@ class Game {
             } else if (peg.pegType === 'green') {
                 // Green peg hit - award power-up!
                 this._handleGreenPegHit(peg, ball);
-
-                // Play special green peg sound (power-up)
-                try {
-                    if (window.audioManager && typeof window.audioManager.playPowerUp === 'function') {
-                        window.audioManager.playPowerUp();
-                    } else if (window.audioManager && typeof window.audioManager.playStyleBonus === 'function') {
-                        // Fallback to style bonus sound
-                        window.audioManager.playStyleBonus();
-                    }
-                } catch (e) {}
+                AudioHelper.play('PowerUp');
             } else {
                 // Regular blue peg sound with pitch scaling
-                try {
-                    if (window.audioManager && typeof window.audioManager.playPegHit === 'function') {
-                        window.audioManager.playPegHit({ pitch: pitchFactor, pan: panValue * 0.3 });
-                    }
-                } catch (e) {}
+                AudioHelper.play('PegHit', { pitch: pitchFactor, pan: panValue * 0.3 });
             }
         }
 
@@ -693,12 +734,7 @@ class Game {
             }
         }
 
-        // Play fanfare
-        try {
-            if (window.audioManager && typeof window.audioManager.playFanfare === 'function') {
-                window.audioManager.playFanfare();
-            }
-        } catch (e) {}
+        AudioHelper.play('Fanfare');
     }
 
     /**
@@ -755,11 +791,8 @@ class Game {
             case 'zen':
                 this._powerUpZen(ball);
                 break;
-            case 'thunder':
-                this._powerUpThunder(ball, peg);
-                break;
-            case 'sniper':
-                this._powerUpSniper(ball);
+            case 'lightning':
+                this._powerUpLightning(ball, peg);
                 break;
             case 'ghost':
                 this._powerUpGhost(ball);
@@ -772,6 +805,18 @@ class Game {
                 break;
             case 'splitter':
                 this._powerUpSplitter(ball);
+                break;
+            case 'firework':
+                this._powerUpFirework(ball);
+                break;
+            case 'antigravity':
+                this._powerUpAntiGravity(ball);
+                break;
+            case 'bouncy':
+                this._powerUpBouncy(ball);
+                break;
+            case 'blackhole':
+                this._powerUpBlackHole(ball, peg);
                 break;
         }
     }
@@ -802,8 +847,7 @@ class Game {
     _powerUpFireball(ball) {
         if (!ball) return;
         ball.isFireball = true;
-        ball.fireballHits = 0;
-        ball.maxFireballHits = 8;
+        // Fireball stays on fire indefinitely - burns through all pegs it touches
     }
 
     /**
@@ -826,13 +870,13 @@ class Game {
     }
 
     /**
-     * Thunder - Lightning chains to nearby pegs
+     * Lightning - Chains to nearby pegs with electric bolts
      */
-    _powerUpThunder(ball, peg) {
+    _powerUpLightning(ball, peg) {
         if (!peg) return;
 
         // Find nearby pegs and hit them with lightning
-        const thunderRadius = 150;
+        const lightningRadius = 150;
         const maxChain = 5;
         let chainCount = 0;
 
@@ -842,7 +886,7 @@ class Game {
             const dy = p.y - peg.y;
             const dist = Math.hypot(dx, dy);
 
-            if (dist > 0 && dist < thunderRadius) {
+            if (dist > 0 && dist < lightningRadius) {
                 // Add lightning effect
                 this.scorePopups.push({
                     x: p.x, y: p.y,
@@ -859,20 +903,9 @@ class Game {
 
         // Give ball electric visual
         if (ball) {
-            ball.isThunder = true;
-            ball.thunderUntil = performance.now() + 3000;
+            ball.isLightning = true;
+            ball.lightningUntil = performance.now() + 3000;
         }
-    }
-
-    /**
-     * Sniper - Precise aim with no randomness
-     */
-    _powerUpSniper(ball) {
-        if (!ball) return;
-        ball.isSniper = true;
-        // Remove any velocity randomness
-        ball.vx = ball.vx; // Keep exact velocity
-        ball.vy = ball.vy;
     }
 
     /**
@@ -937,12 +970,15 @@ class Game {
     }
 
     /**
-     * Splitter - Ball splits on each peg hit (up to 3 times)
+     * Splitter - Ball splits into 2 on peg hit, each can split once more (max 4 balls)
+     * All splitter balls are rainbow colored
      */
     _powerUpSplitter(ball) {
         if (!ball) return;
         ball.isSplitter = true;
-        ball.splitsRemaining = 3;
+        ball.isRainbow = true;
+        ball.canSplit = true; // This ball can still split
+        this.splitterBallCount = 1; // Track total splitter balls
     }
 
     /**
@@ -955,6 +991,42 @@ class Game {
                 peg.isExploding = false;
                 this._handlePegHit(peg, null);
             }
+        }
+    }
+
+    /**
+     * Process burning pegs from fireball (burn animation before disappearing)
+     */
+    _processBurningPegs() {
+        const now = performance.now();
+        const pegsToRemove = [];
+
+        for (const peg of this.pegs) {
+            if (peg.isBurning && !peg.isHit) {
+                const burnDuration = 400; // Burn for 400ms then disappear
+                const burnAge = now - peg.burnStartTime;
+
+                if (burnAge >= burnDuration) {
+                    // Done burning - score it and mark for removal
+                    peg.isBurning = false;
+                    this._handlePegHit(peg, null);
+                    pegsToRemove.push(peg);
+
+                    // Add smoke puff effect
+                    this.scorePopups.push({
+                        x: peg.x,
+                        y: peg.y,
+                        isSmokePuff: true,
+                        birth: now
+                    });
+                }
+            }
+        }
+
+        // Remove burned pegs immediately
+        if (pegsToRemove.length > 0) {
+            this.pegs = this.pegs.filter(p => !pegsToRemove.includes(p));
+            this.renderer.staticDirty = true;
         }
     }
 
@@ -1016,20 +1088,320 @@ class Game {
     }
 
     /**
-     * Handle splitter ball split
+     * Handle splitter ball split - creates a new rainbow ball
+     * Each ball can only split once, max 4 balls total
      */
     _handleSplitterSplit(ball) {
-        if (!ball || !ball.isSplitter || ball.splitsRemaining <= 0) return;
+        if (!ball || !ball.isSplitter || !ball.canSplit) return;
+        if ((this.splitterBallCount || 1) >= 4) return;
 
-        ball.splitsRemaining--;
+        // This ball can no longer split
+        ball.canSplit = false;
+
         const baseSpeed = Math.hypot(ball.vx, ball.vy) || 8;
         const baseAngle = Math.atan2(ball.vy, ball.vx);
 
-        // Create one new ball at perpendicular angle
+        // Create new rainbow splitter ball at diverging angle
         const newBall = new Ball(ball.x, ball.y);
-        const splitAngle = baseAngle + (Math.random() > 0.5 ? 0.6 : -0.6);
-        newBall.launch(splitAngle, baseSpeed * 0.85);
+        newBall.isSplitter = true;
+        newBall.isRainbow = true;
+        newBall.canSplit = true; // New ball can also split once
+
+        // Split at opposite angle
+        const splitAngle = baseAngle + (Math.random() > 0.5 ? 0.7 : -0.7);
+        newBall.launch(splitAngle, baseSpeed * 0.9);
+        newBall.active = true;
+
         this.balls.push(newBall);
+        this.splitterBallCount = (this.splitterBallCount || 1) + 1;
+
+        // Visual effect
+        this.scorePopups.push({
+            x: ball.x,
+            y: ball.y,
+            isSplitterSplit: true,
+            birth: performance.now()
+        });
+
+        AudioHelper.play('PowerUp');
+    }
+
+    // =============================================
+    // NEW POWER-UPS (Worms-inspired)
+    // =============================================
+
+    /**
+     * Firework - Ball rockets back up when it exits bottom, explodes at peak
+     */
+    _powerUpFirework(ball) {
+        if (!ball) return;
+        ball.isFirework = true;
+        ball.fireworkUsed = false;
+        ball.fireworkPhase = 'falling'; // 'falling', 'launching', 'exploding'
+    }
+
+    /**
+     * Handle firework launch when ball exits bottom
+     */
+    _handleFireworkLaunch(ball) {
+        if (!ball || !ball.isFirework || ball.fireworkUsed) return false;
+
+        ball.fireworkUsed = true;
+        ball.fireworkPhase = 'launching';
+        ball.fireworkLaunchTime = performance.now();
+        ball.fireworkStartY = ball.y;
+
+        // Reset position to just inside play area and rocket upward
+        ball.y = this.board.innerBottom - 20; // Bring back into play area
+        ball.vx = (Math.random() - 0.5) * 4; // Slight wobble
+        ball.vy = -14 - Math.random() * 8; // Random velocity between -14 and -22
+        ball.landed = false;
+        ball.active = true;
+
+        // Visual launch effect
+        this.scorePopups.push({
+            x: ball.x,
+            y: this.board.innerBottom,
+            isFireworkLaunch: true,
+            birth: performance.now()
+        });
+
+        AudioHelper.play('PowerUp');
+
+        // Screen shake for launch
+        this.triggerShake(6, 200);
+
+        return true;
+    }
+
+    /**
+     * Handle firework explosion at peak
+     */
+    _handleFireworkExplosion(ball) {
+        if (!ball || ball.fireworkPhase !== 'launching') return;
+
+        ball.fireworkPhase = 'exploding';
+        const explosionRadius = 200;
+        let hitCount = 0;
+
+        // Find all pegs in explosion radius
+        for (const peg of this.pegs) {
+            if (peg.isHit) continue;
+            const dx = peg.x - ball.x;
+            const dy = peg.y - ball.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < explosionRadius) {
+                // Delay based on distance for cascading effect
+                peg.isExploding = true;
+                peg.explodeTime = performance.now() + (dist / explosionRadius) * 300;
+                hitCount++;
+            }
+        }
+
+        // Add dramatic explosion visual
+        this.scorePopups.push({
+            x: ball.x, y: ball.y,
+            isFireworkExplosion: true,
+            radius: explosionRadius,
+            birth: performance.now(),
+            sparkColors: ['#FF1493', '#FFD700', '#00FF00', '#00BFFF', '#FF4500', '#9400D3']
+        });
+
+        // Big shake
+        this.triggerShake(12, 400);
+        AudioHelper.play('Fanfare');
+
+        // Ball is now done
+        ball.land(null);
+        this._maybeFinishShot();
+    }
+
+    /**
+     * Anti-Gravity - Ball falls upward for a duration
+     */
+    _powerUpAntiGravity(ball) {
+        if (!ball) return;
+        ball.isAntiGravity = true;
+        ball.antiGravityStartTime = performance.now();
+        ball.antiGravityFlipTime = 0; // Track when gravity flips back
+
+        // Visual indicator
+        this.scorePopups.push({
+            x: ball.x, y: ball.y,
+            isAntiGravityActivation: true,
+            birth: performance.now()
+        });
+    }
+
+    /**
+     * Bouncy Ball - Gains energy with each bounce, crazy high restitution
+     */
+    _powerUpBouncy(ball) {
+        if (!ball) return;
+        ball.isBouncy = true;
+        ball.bounceCount = 0;
+        ball.bouncyEnergy = 1.0; // Starts at normal, increases
+        ball.maxBouncyEnergy = 2.5; // Cap the craziness
+    }
+
+    /**
+     * Handle bouncy ball energy gain on bounce
+     */
+    _handleBouncyBounce(ball) {
+        if (!ball || !ball.isBouncy) return;
+
+        ball.bounceCount++;
+        // Gain 15% energy per bounce, up to max
+        ball.bouncyEnergy = Math.min(ball.maxBouncyEnergy, ball.bouncyEnergy + 0.15);
+
+        // Apply energy boost to velocity
+        const boost = 1 + (ball.bouncyEnergy - 1) * 0.3;
+        ball.vx *= boost;
+        ball.vy *= boost;
+
+        // Visual feedback
+        this.scorePopups.push({
+            x: ball.x, y: ball.y,
+            isBouncyPulse: true,
+            energy: ball.bouncyEnergy,
+            birth: performance.now()
+        });
+
+        // Screen shake at high energy
+        if (ball.bouncyEnergy > 1.8) {
+            this.triggerShake(ball.bouncyEnergy * 2, 100);
+        }
+    }
+
+    /**
+     * Black Hole - Creates a gravity well that sucks in nearby pegs
+     */
+    _powerUpBlackHole(ball, peg) {
+        if (!peg) return;
+
+        const blackHole = {
+            x: peg.x,
+            y: peg.y,
+            radius: 180,
+            strength: 0.8,
+            birth: performance.now(),
+            duration: 2500, // 2.5 seconds
+            phase: 'forming', // 'forming', 'active', 'collapsing'
+            absorbedPegs: []
+        };
+
+        this.blackHoles.push(blackHole);
+
+        // Visual indicator
+        this.scorePopups.push({
+            x: peg.x, y: peg.y,
+            isBlackHoleForm: true,
+            birth: performance.now()
+        });
+
+        // Ominous shake
+        this.triggerShake(8, 300);
+
+        // Give ball dark aura
+        if (ball) {
+            ball.isBlackHoleMaster = true;
+        }
+    }
+
+    /**
+     * Update black holes (called from main update)
+     */
+    _updateBlackHoles() {
+        const now = performance.now();
+
+        for (let i = this.blackHoles.length - 1; i >= 0; i--) {
+            const bh = this.blackHoles[i];
+            const age = now - bh.birth;
+
+            // Phase transitions
+            if (age < 300) {
+                bh.phase = 'forming';
+            } else if (age < bh.duration - 500) {
+                bh.phase = 'active';
+            } else if (age < bh.duration) {
+                bh.phase = 'collapsing';
+            } else {
+                // Remove expired black hole
+                this.blackHoles.splice(i, 1);
+                continue;
+            }
+
+            // Active phase: pull in nearby pegs
+            if (bh.phase === 'active') {
+                for (const peg of this.pegs) {
+                    if (peg.isHit || bh.absorbedPegs.includes(peg)) continue;
+
+                    const dx = bh.x - peg.x;
+                    const dy = bh.y - peg.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < bh.radius && dist > 20) {
+                        // Pull peg toward center
+                        const force = bh.strength * (1 - dist / bh.radius);
+                        peg.x += (dx / dist) * force * 2;
+                        peg.y += (dy / dist) * force * 2;
+
+                        // Mark peg as dirty for re-render
+                        this.renderer.staticDirty = true;
+
+                        // Absorb peg if close enough
+                        if (dist < 30) {
+                            bh.absorbedPegs.push(peg);
+                            this._handlePegHit(peg, null);
+                        }
+                    }
+                }
+
+                // Also affect balls
+                for (const ball of this.balls) {
+                    if (!ball.active || ball.landed || ball.isBlackHoleMaster) continue;
+
+                    const dx = bh.x - ball.x;
+                    const dy = bh.y - ball.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < bh.radius * 1.5) {
+                        // Gentle pull on balls
+                        const force = bh.strength * 0.3 * (1 - dist / (bh.radius * 1.5));
+                        ball.vx += (dx / dist) * force;
+                        ball.vy += (dy / dist) * force;
+                    }
+                }
+            }
+
+            // Collapsing phase: final explosion
+            if (bh.phase === 'collapsing' && !bh.exploded) {
+                bh.exploded = true;
+
+                // Hit any remaining nearby pegs
+                for (const peg of this.pegs) {
+                    if (peg.isHit) continue;
+                    const dx = bh.x - peg.x;
+                    const dy = bh.y - peg.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < bh.radius * 0.5) {
+                        peg.isExploding = true;
+                        peg.explodeTime = now + dist * 2;
+                    }
+                }
+
+                // Collapse visual
+                this.scorePopups.push({
+                    x: bh.x, y: bh.y,
+                    isBlackHoleCollapse: true,
+                    birth: now
+                });
+
+                this.triggerShake(10, 250);
+            }
+        }
     }
 
     _handleGoalCatch(ball) {
@@ -1064,12 +1436,7 @@ class Game {
         // Mark that we earned a free ball - _finishShot will NOT increment shotsTaken
         this.freeBallEarned = true;
 
-        // Play satisfying kerplunk sound
-        try {
-            if (window.audioManager && typeof window.audioManager.playKerplunk === 'function') {
-                window.audioManager.playKerplunk();
-            }
-        } catch (e) {}
+        AudioHelper.play('Kerplunk');
 
         try {
             if (typeof window.spawnConfetti === 'function') {
@@ -1132,12 +1499,7 @@ class Game {
             } catch (e) {}
         }
 
-        // Play celebration sound
-        try {
-            if (window.audioManager && typeof window.audioManager.playKerplunk === 'function') {
-                window.audioManager.playKerplunk();
-            }
-        } catch (e) {}
+        AudioHelper.play('Kerplunk');
 
         this._maybeFinishShot();
     }
@@ -1163,10 +1525,8 @@ class Game {
     }
 
     _finishShot() {
-        // Check for trail unlocks before resetting combo
-        this._checkTrailUnlocks();
-
         this.combo = 0;
+        this.splitterBallCount = 0; // Reset splitter ball counter
 
         // Only increment shotsTaken if we didn't earn a free ball
         if (!this.freeBallEarned) {
@@ -1333,6 +1693,7 @@ class Game {
         this.currentPowerUp = null;
         this.zenMode = false;
         this.powerUpPending = false;
+        this.blackHoles = [];
 
         // Reset magazines (loading animation starts when modal is dismissed)
         if (this.magazines) {
@@ -1520,12 +1881,7 @@ class Game {
             bonusName: name
         });
 
-        // Play bonus sound
-        try {
-            if (window.audioManager && typeof window.audioManager.playStyleBonus === 'function') {
-                window.audioManager.playStyleBonus();
-            }
-        } catch (e) {}
+        AudioHelper.play('StyleBonus');
 
         // Small celebratory shake
         this.triggerShake(5, 180);

@@ -64,8 +64,40 @@ class Ball {
         if (!this.active || this.landed) return;
 
         const p = tuning || CONFIG.PHYSICS;
-        const gravity = (typeof p.gravity === 'number') ? p.gravity : CONFIG.PHYSICS.gravity;
+        let gravity = (typeof p.gravity === 'number') ? p.gravity : CONFIG.PHYSICS.gravity;
         const friction = (typeof p.friction === 'number') ? p.friction : CONFIG.PHYSICS.friction;
+
+        // Anti-gravity power-up - smooth rocket-like rise and fall
+        if (this.isAntiGravity) {
+            const now = performance.now();
+            const elapsed = now - (this.antiGravityStartTime || now);
+            const duration = 3000; // 3 second duration
+            const progress = Math.min(1, elapsed / duration);
+
+            // Cannon area is roughly y=150, pegs start at y=300
+            const cannonY = 180;
+            const pegsY = CONFIG.PEGS?.startY || 300;
+
+            // Calculate anti-gravity strength based on height and time
+            // Stronger at bottom, weaker near top (like fuel running out)
+            const heightFactor = Math.max(0, (this.y - cannonY) / (pegsY - cannonY));
+            const timeFactor = 1 - progress; // Decreases over time
+            const antiGravStrength = heightFactor * timeFactor;
+
+            if (progress >= 1 || antiGravStrength <= 0.05) {
+                // Anti-gravity fully expired - smooth transition to normal gravity
+                this.isAntiGravity = false;
+                this.antiGravityFlipTime = now;
+            } else {
+                // Gradually weakening anti-gravity (rocket running out of fuel)
+                gravity = gravity * (1 - antiGravStrength * 2.2);
+            }
+        }
+
+        // Firework launching - strong upward thrust with sparkle trail
+        if (this.isFirework && this.fireworkPhase === 'launching') {
+            gravity = -0.3; // Counteract some gravity during launch
+        }
 
         this.vy += gravity;
         this.vx *= friction;
@@ -137,7 +169,7 @@ class Ball {
             // Force specific trails for power-up modes
             if (this.isFireball) {
                 if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'fire');
-            } else if (this.isThunder) {
+            } else if (this.isLightning) {
                 if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'lightning');
             } else if (this.isGhost) {
                 if (this._trail && this._trail.length > 1) this._renderTrail(ctx, scale, 'smoke');
@@ -192,8 +224,8 @@ class Ball {
             ctx.fill();
             ctx.globalAlpha = 1;
         }
-        // Thunder mode - electric blue
-        else if (this.isThunder) {
+        // Lightning mode - electric blue
+        else if (this.isLightning) {
             const pulse = Math.sin(now * 0.03) * 0.3 + 0.7;
             ctx.shadowColor = '#00FFFF';
             ctx.shadowBlur = 25 * scale * pulse;
@@ -254,22 +286,36 @@ class Ball {
             ctx.arc(x - r * 0.4, y - r * 0.6, 3 * scale * pulse, 0, Math.PI * 2);
             ctx.fill();
         }
-        // Splitter mode - rainbow prism
-        else if (this.isSplitter) {
-            const hue = (now * 0.2) % 360;
+        // Splitter/Rainbow mode - cycling rainbow colors
+        else if (this.isSplitter || this.isRainbow) {
+            const hue = (now * 0.3 + (this.x * 0.5)) % 360;
+            const pulse = Math.sin(now * 0.008) * 0.15 + 0.85;
+
+            // Outer rainbow glow
             ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
-            ctx.shadowBlur = 18 * scale;
+            ctx.shadowBlur = 22 * scale * pulse;
             ctx.beginPath();
-            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
-            ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+            ctx.arc(x, y, r + 5 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = `hsl(${hue}, 90%, 55%)`;
             ctx.fill();
+
+            // Inner ball with rainbow gradient
+            ctx.shadowBlur = 0;
             ctx.beginPath();
             ctx.arc(x, y, r, 0, Math.PI * 2);
-            const grad = ctx.createLinearGradient(x - r, y, x + r, y);
-            grad.addColorStop(0, `hsl(${hue}, 100%, 70%)`);
-            grad.addColorStop(0.5, '#FFFFFF');
-            grad.addColorStop(1, `hsl(${(hue + 180) % 360}, 100%, 70%)`);
+            const grad = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+            grad.addColorStop(0, `hsl(${hue}, 100%, 65%)`);
+            grad.addColorStop(0.25, `hsl(${(hue + 60) % 360}, 100%, 65%)`);
+            grad.addColorStop(0.5, `hsl(${(hue + 120) % 360}, 100%, 65%)`);
+            grad.addColorStop(0.75, `hsl(${(hue + 180) % 360}, 100%, 65%)`);
+            grad.addColorStop(1, `hsl(${(hue + 240) % 360}, 100%, 65%)`);
             ctx.fillStyle = grad;
+            ctx.fill();
+
+            // White shine
+            ctx.beginPath();
+            ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
             ctx.fill();
         }
         // Spooky mode - purple ghost aura
@@ -285,6 +331,150 @@ class Ball {
             ctx.arc(x, y, r, 0, Math.PI * 2);
             ctx.fillStyle = '#D8BFD8';
             ctx.fill();
+        }
+        // Firework mode - rocket with sparkling trail
+        else if (this.isFirework) {
+            const isLaunching = this.fireworkPhase === 'launching';
+            const flicker = Math.sin(now * 0.03) * 0.2 + 0.8;
+
+            if (isLaunching) {
+                // Rocket body - bright pink/magenta
+                ctx.shadowColor = '#FF1493';
+                ctx.shadowBlur = 30 * scale * flicker;
+                ctx.beginPath();
+                ctx.arc(x, y, r + 6 * scale, 0, Math.PI * 2);
+                ctx.fillStyle = '#FF1493';
+                ctx.fill();
+
+                // Rocket exhaust trail
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 20 * scale;
+                for (let i = 0; i < 5; i++) {
+                    const trailY = y + (i + 1) * 12 * scale;
+                    const trailSize = (r - i * 3) * scale * flicker;
+                    if (trailSize > 0) {
+                        ctx.beginPath();
+                        ctx.arc(x + (Math.random() - 0.5) * 6 * scale, trailY, trailSize, 0, Math.PI * 2);
+                        ctx.fillStyle = i < 2 ? '#FFFFFF' : (i < 4 ? '#FFD700' : '#FF4500');
+                        ctx.fill();
+                    }
+                }
+            } else {
+                // Pre-launch - sparkly ball
+                ctx.shadowColor = '#FF1493';
+                ctx.shadowBlur = 15 * scale * flicker;
+                ctx.beginPath();
+                ctx.arc(x, y, r + 3 * scale, 0, Math.PI * 2);
+                ctx.fillStyle = '#FF69B4';
+                ctx.fill();
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill();
+        }
+        // Anti-Gravity mode - swirling purple/blue aura
+        else if (this.isAntiGravity) {
+            const pulse = Math.sin(now * 0.02) * 0.3 + 0.7;
+            const rotation = now * 0.003;
+
+            // Outer swirling rings
+            ctx.strokeStyle = 'rgba(123, 104, 238, 0.5)';
+            ctx.lineWidth = 2 * scale;
+            for (let i = 0; i < 3; i++) {
+                const ringR = r + (8 + i * 6) * scale * pulse;
+                ctx.beginPath();
+                ctx.arc(x, y, ringR, rotation + i * 0.7, rotation + i * 0.7 + Math.PI * 1.5);
+                ctx.stroke();
+            }
+
+            // Glowing core
+            ctx.shadowColor = '#7B68EE';
+            ctx.shadowBlur = 25 * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#9370DB';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#E6E6FA';
+            ctx.fill();
+
+            // Up arrows to indicate anti-gravity
+            ctx.fillStyle = '#7B68EE';
+            const arrowY = y - r - 15 * scale;
+            ctx.beginPath();
+            ctx.moveTo(x, arrowY - 8 * scale);
+            ctx.lineTo(x - 6 * scale, arrowY);
+            ctx.lineTo(x + 6 * scale, arrowY);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Bouncy Ball mode - energetic green glow that intensifies
+        else if (this.isBouncy) {
+            const energy = this.bouncyEnergy || 1.0;
+            const pulse = Math.sin(now * 0.025 * energy) * 0.2 + 0.8;
+            const intensity = Math.min(1, (energy - 1) / 1.5); // 0 to 1 based on energy
+
+            // Energy rings that expand with more bounces
+            ctx.strokeStyle = `rgba(50, 205, 50, ${0.3 + intensity * 0.4})`;
+            ctx.lineWidth = (2 + intensity * 2) * scale;
+            for (let i = 0; i < Math.floor(1 + energy); i++) {
+                const ringR = r + (6 + i * 8) * scale * pulse;
+                ctx.beginPath();
+                ctx.arc(x, y, ringR, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Glowing ball that gets brighter
+            ctx.shadowColor = '#32CD32';
+            ctx.shadowBlur = (15 + intensity * 20) * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + (2 + intensity * 4) * scale, 0, Math.PI * 2);
+            ctx.fillStyle = `rgb(${50 + intensity * 100}, ${205 + intensity * 50}, ${50})`;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+            grad.addColorStop(0, '#ADFF2F');
+            grad.addColorStop(1, '#32CD32');
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
+        // Black Hole Master - dark aura
+        else if (this.isBlackHoleMaster) {
+            const pulse = Math.sin(now * 0.015) * 0.2 + 0.8;
+
+            // Dark swirling void
+            ctx.shadowColor = '#191970';
+            ctx.shadowBlur = 25 * scale * pulse;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 6 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fill();
+
+            // Inner event horizon
+            const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+            grad.addColorStop(0, '#000000');
+            grad.addColorStop(0.7, '#191970');
+            grad.addColorStop(1, '#4B0082');
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Distortion ring
+            ctx.strokeStyle = 'rgba(138, 43, 226, 0.5)';
+            ctx.lineWidth = 2 * scale;
+            ctx.setLineDash([4 * scale, 4 * scale]);
+            ctx.beginPath();
+            ctx.arc(x, y, r + 10 * scale, now * 0.002, now * 0.002 + Math.PI * 1.5);
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
         // Normal ball
         else {
