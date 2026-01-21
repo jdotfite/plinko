@@ -11,7 +11,7 @@ class GoalMouth {
         this.height = opts.height || 50;
         this.y = (typeof opts.y === 'number') ? opts.y : (board.innerBottom - this.height);
         this.x = innerLeft + (innerRight - innerLeft - width) / 2;
-        this.speed = opts.speed || 1.0;
+        this.speed = opts.speed || 0.85;
         this.direction = 1;
 
         // Easing configuration - distance from wall to start slowing down

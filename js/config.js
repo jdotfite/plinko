@@ -86,7 +86,7 @@ const CONFIG = {
     
     // Peg configuration - offset grid (Peggle-style dense layout)
     PEGS: {
-        startY: 200,          // Adjusted for cannon space
+        startY: 300,          // Adjusted for cannon space (moved down 100px)
         horizontalGap: 95,    // Tighter (was 140)
         verticalGap: 90,      // Tighter (was 130)
         radius: 12,           // Slightly smaller (was 14)
