@@ -126,68 +126,44 @@ class Peg {
 
         // Determine base color based on peg type
         let fillColor;
-        let glowColor = null;
         if (this.pegType === 'orange') {
             fillColor = '#FF6B00';
         } else if (this.pegType === 'green') {
             fillColor = '#00DD44';
-            glowColor = '#00FF55';
         } else {
             fillColor = CONFIG.COLORS.peg;
         }
 
-        // Green peg glow effect (pulsing)
-        if (glowColor && !this.isHit) {
-            const pulse = Math.sin(now * 0.004) * 0.3 + 0.7; // Gentle pulse
-            ctx.save();
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = (12 + pulse * 6) * (scale || 1);
-            ctx.beginPath();
-            ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
-            ctx.fillStyle = fillColor;
-            ctx.fill();
-            ctx.restore();
-        } else {
-            // Draw the peg
-            ctx.beginPath();
-            ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
+        // Draw the peg
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
 
-            // Apply flash effect (blend toward white/bright)
-            if (flashIntensity > 0 && this.isHit) {
-                if (this.pegType === 'orange') {
-                    // Flash to bright yellow-orange
-                    const flashR = Math.round(255);
-                    const flashG = Math.round(200 + 55 * flashIntensity);
-                    const flashB = Math.round(100 * flashIntensity);
-                    ctx.fillStyle = `rgb(${flashR}, ${flashG}, ${flashB})`;
-                } else if (this.pegType === 'green') {
-                    // Flash to bright cyan-green
-                    const flashR = Math.round(100 * flashIntensity);
-                    const flashG = Math.round(255);
-                    const flashB = Math.round(150 + 100 * flashIntensity);
-                    ctx.fillStyle = `rgb(${flashR}, ${flashG}, ${flashB})`;
-                } else {
-                    // Flash to light gray/white
-                    const gray = Math.round(150 + 105 * flashIntensity);
-                    ctx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
-                }
+        // Apply flash effect (blend toward white/bright)
+        if (flashIntensity > 0 && this.isHit) {
+            if (this.pegType === 'orange') {
+                // Flash to bright yellow-orange
+                const flashR = Math.round(255);
+                const flashG = Math.round(200 + 55 * flashIntensity);
+                const flashB = Math.round(100 * flashIntensity);
+                ctx.fillStyle = `rgb(${flashR}, ${flashG}, ${flashB})`;
+            } else if (this.pegType === 'green') {
+                // Flash to bright green
+                const flashG = Math.round(255);
+                ctx.fillStyle = `rgb(100, ${flashG}, 100)`;
             } else {
-                ctx.fillStyle = fillColor;
+                // Flash to light gray/white
+                const gray = Math.round(150 + 105 * flashIntensity);
+                ctx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
             }
-
-            ctx.fill();
+        } else {
+            ctx.fillStyle = fillColor;
         }
+
+        ctx.fill();
 
         // Orange peg border (only when not hit)
         if (this.pegType === 'orange' && !this.isHit) {
             ctx.strokeStyle = '#FF8C00';
-            ctx.lineWidth = 1.5 * scale;
-            ctx.stroke();
-        }
-
-        // Green peg border (only when not hit)
-        if (this.pegType === 'green' && !this.isHit) {
-            ctx.strokeStyle = '#00FF66';
             ctx.lineWidth = 1.5 * scale;
             ctx.stroke();
         }

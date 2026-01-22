@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // HUD updater
+    // HUD updater - Clean 3-card layout
     window.updateHud = function(state) {
         if (!state) return;
 
@@ -143,50 +143,24 @@ document.addEventListener('DOMContentLoaded', () => {
             levelSelect.value = String(state.levelIndex);
         }
 
-        // Update bottom UI panel - P1 score
-        const bottomP1Score = document.getElementById('bottom-p1-score');
-        if (bottomP1Score) bottomP1Score.textContent = String(state.p1 || 0);
-
-        // Update bottom UI panel - P2 score
-        const bottomP2Score = document.getElementById('bottom-p2-score');
-        if (bottomP2Score) bottomP2Score.textContent = String(state.p2 || 0);
-
-        // Update bottom UI panel - P1 balls remaining
-        const bottomP1Balls = document.getElementById('bottom-p1-balls');
-        if (bottomP1Balls && window.game) {
-            const remaining = window.game.shotsPerPlayer - (state.shotsTaken?.[0] || 0);
-            bottomP1Balls.textContent = String(remaining);
+        // Update bottom UI panel - Score (P1 score for single player)
+        const bottomScore = document.getElementById('bottom-p1-score');
+        if (bottomScore) {
+            const score = state.p1 || 0;
+            bottomScore.textContent = score.toLocaleString();
         }
 
-        // Update bottom UI panel - P2 balls remaining
-        const bottomP2Balls = document.getElementById('bottom-p2-balls');
-        if (bottomP2Balls && window.game) {
-            const remaining = window.game.shotsPerPlayer - (state.shotsTaken?.[1] || 0);
-            bottomP2Balls.textContent = String(remaining);
-        }
-
-        // Update bottom UI panel - orange pegs
+        // Update bottom UI panel - Targets Left (orange pegs)
         const bottomOrange = document.getElementById('bottom-orange');
         if (bottomOrange) {
             bottomOrange.textContent = String(state.orangePegsRemaining ?? 25);
         }
 
-        // Update bottom UI panel - combo
+        // Update bottom UI panel - Combo multiplier
         const bottomCombo = document.getElementById('bottom-combo');
         if (bottomCombo) {
             const comboValue = 1 + (state.combo || 0) * (window.game ? window.game.tuning.comboStep : 0.1);
             bottomCombo.textContent = `x${comboValue.toFixed(1)}`;
-        }
-
-        // Highlight active player in bottom panel and hide P2 in single player mode
-        const p1Section = document.querySelector('.bottom-player.p1');
-        const p2Section = document.querySelector('.bottom-player.p2');
-        const isTwoPlayer = window.game && window.game.twoPlayerMode;
-        if (p1Section && p2Section) {
-            p1Section.classList.toggle('active', state.currentPlayer === 1);
-            p2Section.classList.toggle('active', state.currentPlayer === 2);
-            // Hide P2 section in single player mode
-            p2Section.style.display = isTwoPlayer ? '' : 'none';
         }
     };
     if (window.game && typeof window.game._notifyHud === 'function') {
@@ -274,6 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const dismissIntro = () => {
         // localStorage.setItem('plinko_seen_intro', 'true'); // Disabled for testing
 
+        // Play button click sound
+        if (window.audioManager) {
+            window.audioManager.playButtonClick();
+        }
+
         // Hide intro
         introModal.classList.add('hidden');
 
@@ -309,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (levelSelectClose) {
         levelSelectClose.onclick = () => {
+            // Play button click sound
+            if (window.audioManager) window.audioManager.playButtonClick();
+
             levelSelectModal.classList.add('hidden');
             // Start level 1 (or current level) when closing without selecting
             if (window.game) {
@@ -332,6 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Play/Next button handler
         okBtn.onclick = () => {
+            // Play button click sound
+            if (window.audioManager) window.audioManager.playButtonClick();
+
             modal.classList.add('hidden');
             // Start magazine loading animation after modal is dismissed
             if (window.game && typeof window.game.startMagazineAnimation === 'function') {
@@ -342,6 +327,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Retry button handler (restart same level)
         if (retryBtn) {
             retryBtn.onclick = () => {
+                // Play button click sound
+                if (window.audioManager) window.audioManager.playButtonClick();
+
                 modal.classList.add('hidden');
                 if (window.game) {
                     window.game.resetMatch();

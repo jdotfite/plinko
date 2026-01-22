@@ -4,8 +4,11 @@
  *
  * Power-up Progression:
  * - Level 1: Introduces Multiball
- * - Level 2: Introduces Fireball (keeps Multiball)
- * - Level 3: Introduces Splitter (keeps previous)
+ * - Level 2: Introduces Firework
+ * - Level 3: Introduces Black Hole
+ * - Level 4: Introduces Fireball
+ * - Level 5: Introduces Lightning
+ * - Level 6: Introduces Spooky Ball
  */
 
 const LEVEL_DATA = {
@@ -34,27 +37,21 @@ const LEVEL_DATA = {
         ],
 
         // Green pegs with their assigned power-ups
-        // Each entry: { index: pegIndex, powerUp: 'powerUpId' }
         greenPegs: [
             { index: 35, powerUp: 'multiball' },
             { index: 70, powerUp: 'multiball' }
         ],
 
-        // Mouth speed for this level
         mouthSpeed: 2.5,
-
-        // Balls per player
         ballCount: 10,
-
-        // Level unlocked by default?
         unlocked: true
     },
 
-    // Level 2 - Introduces Fireball
+    // Level 2 - Introduces Firework
     level_2: {
         id: 'level_2',
         name: 'Level 2',
-        subtitle: 'Feel the Heat',
+        subtitle: 'Sky High',
 
         starThresholds: [4500, 5500, 6500],
 
@@ -71,11 +68,12 @@ const LEVEL_DATA = {
             73, 76
         ],
 
-        // Mix of Multiball (from L1) and new Fireball
+        // Introduce Firework, keep Multiball
         greenPegs: [
+            { index: 12, powerUp: 'firework' },  // Near top
             { index: 30, powerUp: 'multiball' },
-            { index: 48, powerUp: 'fireball' },
-            { index: 65, powerUp: 'fireball' }
+            { index: 48, powerUp: 'firework' },
+            { index: 65, powerUp: 'multiball' }
         ],
 
         mouthSpeed: 2.8,
@@ -83,11 +81,11 @@ const LEVEL_DATA = {
         unlocked: false
     },
 
-    // Level 3 - Introduces Splitter
+    // Level 3 - Introduces Black Hole
     level_3: {
         id: 'level_3',
         name: 'Level 3',
-        subtitle: 'Split Decision',
+        subtitle: 'Event Horizon',
 
         starThresholds: [5000, 6000, 7000],
 
@@ -104,14 +102,111 @@ const LEVEL_DATA = {
             72
         ],
 
-        // Mix of all three power-ups
+        // Introduce Black Hole, keep previous
         greenPegs: [
-            { index: 25, powerUp: 'multiball' },
-            { index: 45, powerUp: 'fireball' },
-            { index: 60, powerUp: 'splitter' }
+            { index: 12, powerUp: 'multiball' },
+            { index: 33, powerUp: 'blackhole' },  // New power-up
+            { index: 52, powerUp: 'firework' },
+            { index: 72, powerUp: 'blackhole' }
         ],
 
         mouthSpeed: 3.0,
+        ballCount: 10,
+        unlocked: false
+    },
+
+    // Level 4 - Introduces Fireball
+    level_4: {
+        id: 'level_4',
+        name: 'Level 4',
+        subtitle: 'Feel the Heat',
+
+        starThresholds: [5500, 6500, 7500],
+
+        orangePegIndices: [
+            0, 3, 5, 7,
+            9, 11, 14,
+            16, 18, 21,
+            24, 26, 28,
+            31, 34, 37,
+            40, 43, 46,
+            49, 51, 54,
+            57, 60, 63
+        ],
+
+        // Introduce Fireball, keep previous
+        greenPegs: [
+            { index: 15, powerUp: 'fireball' },  // New power-up
+            { index: 35, powerUp: 'blackhole' },
+            { index: 55, powerUp: 'firework' },
+            { index: 70, powerUp: 'fireball' }
+        ],
+
+        mouthSpeed: 3.2,
+        ballCount: 10,
+        unlocked: false
+    },
+
+    // Level 5 - Introduces Lightning
+    level_5: {
+        id: 'level_5',
+        name: 'Level 5',
+        subtitle: 'Chain Reaction',
+
+        starThresholds: [6000, 7000, 8000],
+
+        orangePegIndices: [
+            1, 4, 6,
+            8, 10, 13,
+            15, 17, 19, 22,
+            25, 27, 29,
+            32, 35, 38,
+            41, 44, 47,
+            50, 52, 55,
+            58, 61, 64
+        ],
+
+        // Introduce Lightning, keep previous
+        greenPegs: [
+            { index: 18, powerUp: 'lightning' }, // New power-up
+            { index: 36, powerUp: 'fireball' },
+            { index: 53, powerUp: 'blackhole' },
+            { index: 68, powerUp: 'firework' }
+        ],
+
+        mouthSpeed: 3.4,
+        ballCount: 10,
+        unlocked: false
+    },
+
+    // Level 6 - Introduces Spooky Ball
+    level_6: {
+        id: 'level_6',
+        name: 'Level 6',
+        subtitle: 'Ghost Mode',
+
+        starThresholds: [6500, 7500, 8500],
+
+        orangePegIndices: [
+            2, 5, 7,
+            9, 12, 14,
+            16, 18, 20, 23,
+            26, 28, 30,
+            33, 36, 39,
+            42, 45, 48,
+            51, 53, 56,
+            59, 62, 65
+        ],
+
+        // Introduce Spooky Ball, mix of all power-ups
+        greenPegs: [
+            { index: 15, powerUp: 'spooky' },    // New power-up
+            { index: 32, powerUp: 'lightning' },
+            { index: 50, powerUp: 'fireball' },
+            { index: 67, powerUp: 'blackhole' }
+        ],
+
+        mouthSpeed: 3.5,
         ballCount: 10,
         unlocked: false
     }

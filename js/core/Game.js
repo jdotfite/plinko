@@ -110,12 +110,12 @@ class Game {
         this.slowMoUntil = 0;
         this.applyLevel(this.currentLevelIndex);
 
-        // Goal mouth - positioned above the bottom UI panel (UI now scales with canvas)
+        // Goal mouth - positioned above the bottom UI panel
         this.goalMouth = new GoalMouth(this.board, {
             width: 200,   // Wider mouth
             height: 60,   // Taller tube
             speed: 3.0,   // Faster movement
-            y: this.board.innerBottom - 95  // Moved up 20px
+            y: this.board.innerBottom - 75  // Adjusted for new bottom panel shape
         });
 
         // Fever slots - score multiplier slots during Extreme Fever
@@ -1750,6 +1750,16 @@ class Game {
 
         okBtn.querySelector('span').textContent = 'LEVELS';
 
+        // Add/remove fail-state class for button styling
+        const modalContent = modal.querySelector('.round-modal-content');
+        if (modalContent) {
+            if (orangeCleared) {
+                modalContent.classList.remove('fail-state');
+            } else {
+                modalContent.classList.add('fail-state');
+            }
+        }
+
         modal.classList.remove('hidden');
 
         // If level completed and has remaining balls, animate bonus counting
@@ -1765,6 +1775,8 @@ class Game {
         // Retry button - replay current level
         if (retryBtn) {
             retryBtn.onclick = () => {
+                // Play button click sound
+                if (window.audioManager) window.audioManager.playButtonClick();
                 modal.classList.add('hidden');
                 this.resetMatch();
                 this.startMagazineAnimation();
@@ -1773,6 +1785,8 @@ class Game {
 
         // Main button - show level select
         okBtn.onclick = () => {
+            // Play button click sound
+            if (window.audioManager) window.audioManager.playButtonClick();
             modal.classList.add('hidden');
             this.showLevelSelect();
         };
@@ -1892,9 +1906,9 @@ class Game {
             setTimeout(() => {
                 if (idx < starsEarned && levelCleared) {
                     star.classList.add('earned');
-                    // Play a small chime for each star
-                    if (window.audioManager && typeof window.audioManager.playBallBonus === 'function') {
-                        window.audioManager.playBallBonus({ pitch: 1.2 + idx * 0.15 });
+                    // Play twinkle sound for each star
+                    if (window.audioManager && typeof window.audioManager.playStarEarned === 'function') {
+                        window.audioManager.playStarEarned({ pitch: 1.0 + idx * 0.15 });
                     }
                 }
             }, delay * (idx + 1));
@@ -1935,6 +1949,9 @@ class Game {
         if (typeof window.updateTotalStars === 'function') {
             window.updateTotalStars();
         }
+
+        // Play menu whoosh when opening
+        if (window.audioManager) window.audioManager.playMenuWhoosh();
 
         levelSelect.classList.remove('hidden');
     }
@@ -2001,7 +2018,11 @@ class Game {
             `;
 
             if (isUnlocked) {
-                card.onclick = () => this.startLevel(idx);
+                card.onclick = () => {
+                    // Play level select sound
+                    if (window.audioManager) window.audioManager.playLevelSelect();
+                    this.startLevel(idx);
+                };
             }
 
             grid.appendChild(card);
@@ -2072,88 +2093,77 @@ class Game {
         const points = [];
         const angle = this.aimAngle;
         const power = this._getChargePower();
+
+        // Start from cannon position (same as ball spawn)
         let x = this.cannon.x;
         let y = this.cannon.y;
         let vx = Math.cos(angle) * power;
         let vy = Math.sin(angle) * power;
-        const steps = 40;
-        const leftWall = this.board.innerLeft;
-        const rightWall = this.board.innerRight;
-        const segments = this.board.chevronSegments || [];
-        const pegs = this.pegs || [];
-        // Use actual ball radius for accurate collision preview
-        const bRadius = CONFIG.BALL.radius;
-        const restitution = CONFIG.PHYSICS.wallRestitution;
-        const pegRestitution = CONFIG.PHYSICS.pegRestitution;
-        // Use actual tuning values for gravity and friction
+
+        // Use exact same physics as Ball.update()
         const gravity = this.tuning.gravity;
         const friction = this.tuning.friction;
+        const maxVelocity = this.tuning.maxVelocity || CONFIG.PHYSICS.maxVelocity;
+        const wallRestitution = CONFIG.PHYSICS.wallRestitution || 0.55;
+        const pegRestitution = CONFIG.PHYSICS.pegRestitution || 0.7;
+        const ballRadius = CONFIG.BALL.radius;
 
-        const reflectOnSegment = (ax, ay, bx, by) => {
-            const abx = bx - ax;
-            const aby = by - ay;
-            const abLenSq = abx * abx + aby * aby;
-            if (abLenSq === 0) return false;
-            const apx = x - ax;
-            const apy = y - ay;
-            let t = (apx * abx + apy * aby) / abLenSq;
-            t = Math.max(0, Math.min(1, t));
-            const closestX = ax + abx * t;
-            const closestY = ay + aby * t;
-            let dx = x - closestX;
-            let dy = y - closestY;
-            const distSq = dx * dx + dy * dy;
-            if (distSq >= bRadius * bRadius) return false;
-            const dist = Math.sqrt(distSq) || 1;
-            const nx = dx / dist;
-            const ny = dy / dist;
-            // push out slightly
-            x += nx * (bRadius - dist + 0.15);
-            y += ny * (bRadius - dist + 0.15);
-            // reflect velocity
-            const dot = vx * nx + vy * ny;
-            vx = (vx - 2 * dot * nx) * restitution;
-            vy = (vy - 2 * dot * ny) * restitution;
-            return true;
-        };
-        const reflectOnPeg = (peg) => {
-            const pr = peg.radius;
-            const dx = x - peg.x;
-            const dy = y - peg.y;
-            const distSq = dx * dx + dy * dy;
-            const minDist = bRadius + pr;
-            if (distSq >= minDist * minDist) return false;
-            const dist = Math.sqrt(distSq) || 1;
-            const nx = dx / dist;
-            const ny = dy / dist;
-            x += nx * (minDist - dist + 0.15);
-            y += ny * (minDist - dist + 0.15);
-            const dot = vx * nx + vy * ny;
-            vx = (vx - 2 * dot * nx) * pegRestitution;
-            vy = (vy - 2 * dot * ny) * pegRestitution;
-            return true;
-        };
+        // Board bounds
+        const leftWall = this.board.innerLeft + ballRadius;
+        const rightWall = this.board.innerRight - ballRadius;
+        const pegs = this.pegs || [];
+
+        // Shorter trajectory - about 30 frames
+        const steps = 30;
+
         for (let i = 0; i < steps; i++) {
-            // Apply physics in same order as Ball.update() for accuracy
+            // Exact same physics order as Ball.update()
             vy += gravity;
             vx *= friction;
             vy *= friction;
+
+            // Velocity clamping (same as Ball.update)
+            const speed = Math.hypot(vx, vy);
+            if (speed > maxVelocity) {
+                const s = maxVelocity / speed;
+                vx *= s;
+                vy *= s;
+            }
+
+            // Position update
             x += vx;
             y += vy;
-            if (pegs.length) {
-                for (let p = 0; p < pegs.length; p++) {
-                    if (reflectOnPeg(pegs[p])) break;
+
+            // Wall collision
+            if (x <= leftWall) {
+                x = leftWall;
+                vx = Math.abs(vx) * wallRestitution;
+            } else if (x >= rightWall) {
+                x = rightWall;
+                vx = -Math.abs(vx) * wallRestitution;
+            }
+
+            // Peg collision (first hit only per step)
+            for (const peg of pegs) {
+                const dx = x - peg.x;
+                const dy = y - peg.y;
+                const distSq = dx * dx + dy * dy;
+                const minDist = ballRadius + peg.radius;
+                if (distSq < minDist * minDist) {
+                    const dist = Math.sqrt(distSq) || 1;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    // Push out
+                    x = peg.x + nx * minDist;
+                    y = peg.y + ny * minDist;
+                    // Reflect velocity
+                    const dot = vx * nx + vy * ny;
+                    vx = (vx - 2 * dot * nx) * pegRestitution;
+                    vy = (vy - 2 * dot * ny) * pegRestitution;
+                    break;
                 }
             }
-            if (segments.length && y + bRadius > this.board.innerTop && y - bRadius < this.board.innerBottom) {
-                for (const seg of segments) {
-                    if (reflectOnSegment(seg.a.x, seg.a.y, seg.b.x, seg.b.y)) break;
-                }
-            }
-            if (x <= leftWall || x >= rightWall) {
-                x = Utils.clamp(x, leftWall, rightWall);
-                vx = -vx;
-            }
+
             points.push({ x, y });
             if (y > this.board.innerBottom) break;
         }

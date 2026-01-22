@@ -1486,6 +1486,285 @@ class SoundManager {
             // silent
         }
     }
+
+    /**
+     * UI Button click - satisfying pop/click for menu buttons
+     */
+    playButtonClick() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Bright pop sound
+            const popFreq = 1200 + Math.random() * 200;
+            const pop = this.ctx.createOscillator();
+            pop.type = 'sine';
+            pop.frequency.setValueAtTime(popFreq, now);
+            pop.frequency.exponentialRampToValueAtTime(popFreq * 0.7, now + 0.06);
+
+            const popGain = this.ctx.createGain();
+            popGain.gain.setValueAtTime(0.0001, now);
+            popGain.gain.exponentialRampToValueAtTime(0.4, now + 0.005);
+            popGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+            pop.connect(popGain);
+            popGain.connect(dest);
+            pop.start(now);
+            pop.stop(now + 0.1);
+
+            // Subtle click noise
+            const clickDur = 0.03;
+            const clickBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * clickDur), this.ctx.sampleRate);
+            const clickData = clickBuffer.getChannelData(0);
+            for (let i = 0; i < clickData.length; i++) {
+                const t = i / clickData.length;
+                clickData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3);
+            }
+
+            const clickSrc = this.ctx.createBufferSource();
+            clickSrc.buffer = clickBuffer;
+
+            const clickHP = this.ctx.createBiquadFilter();
+            clickHP.type = 'highpass';
+            clickHP.frequency.value = 2000;
+
+            const clickGain = this.ctx.createGain();
+            clickGain.gain.setValueAtTime(0.0001, now);
+            clickGain.gain.exponentialRampToValueAtTime(0.25, now + 0.002);
+            clickGain.gain.exponentialRampToValueAtTime(0.0001, now + clickDur);
+
+            clickSrc.connect(clickHP);
+            clickHP.connect(clickGain);
+            clickGain.connect(dest);
+            clickSrc.start(now);
+            clickSrc.stop(now + clickDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Level select sound - fun blip when hovering/selecting a level
+     */
+    playLevelSelect() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Quick rising chirp
+            const chirpFreq = 600 + Math.random() * 100;
+            const chirp = this.ctx.createOscillator();
+            chirp.type = 'sine';
+            chirp.frequency.setValueAtTime(chirpFreq, now);
+            chirp.frequency.exponentialRampToValueAtTime(chirpFreq * 1.8, now + 0.06);
+
+            const chirpGain = this.ctx.createGain();
+            chirpGain.gain.setValueAtTime(0.0001, now);
+            chirpGain.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
+            chirpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+            chirp.connect(chirpGain);
+            chirpGain.connect(dest);
+            chirp.start(now);
+            chirp.stop(now + 0.12);
+
+            // Sparkle overtone
+            const sparkle = this.ctx.createOscillator();
+            sparkle.type = 'sine';
+            sparkle.frequency.setValueAtTime(chirpFreq * 2.5, now + 0.02);
+
+            const sparkleGain = this.ctx.createGain();
+            sparkleGain.gain.setValueAtTime(0.0001, now + 0.02);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.15, now + 0.03);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+            sparkle.connect(sparkleGain);
+            sparkleGain.connect(dest);
+            sparkle.start(now + 0.02);
+            sparkle.stop(now + 0.12);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Menu whoosh - subtle swoosh for modal open/transitions
+     */
+    playMenuWhoosh() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Swoosh noise
+            const swooshDur = 0.15;
+            const swooshBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * swooshDur), this.ctx.sampleRate);
+            const swooshData = swooshBuffer.getChannelData(0);
+            for (let i = 0; i < swooshData.length; i++) {
+                const t = i / swooshData.length;
+                const env = Math.sin(t * Math.PI) * (1 - t * 0.3);
+                swooshData[i] = (Math.random() * 2 - 1) * env;
+            }
+
+            const swooshSrc = this.ctx.createBufferSource();
+            swooshSrc.buffer = swooshBuffer;
+
+            // Bandpass for whooshy character
+            const swooshBP = this.ctx.createBiquadFilter();
+            swooshBP.type = 'bandpass';
+            swooshBP.frequency.setValueAtTime(800, now);
+            swooshBP.frequency.exponentialRampToValueAtTime(2500, now + swooshDur * 0.4);
+            swooshBP.frequency.exponentialRampToValueAtTime(1200, now + swooshDur);
+            swooshBP.Q.value = 1.5;
+
+            const swooshGain = this.ctx.createGain();
+            swooshGain.gain.setValueAtTime(0.0001, now);
+            swooshGain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+            swooshGain.gain.exponentialRampToValueAtTime(0.0001, now + swooshDur);
+
+            swooshSrc.connect(swooshBP);
+            swooshBP.connect(swooshGain);
+            swooshGain.connect(dest);
+            swooshSrc.start(now);
+            swooshSrc.stop(now + swooshDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Star earned sound - twinkling achievement for each star
+     * Accepts options: { pitch: number } for different stars
+     */
+    playStarEarned(opts) {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            let pitchFactor = 1.0;
+            if (opts && typeof opts === 'object') {
+                if (typeof opts.pitch === 'number') pitchFactor = opts.pitch;
+            }
+
+            // Bright twinkle
+            const twinkleFreq = 1400 * pitchFactor;
+            const twinkle = this.ctx.createOscillator();
+            twinkle.type = 'sine';
+            twinkle.frequency.setValueAtTime(twinkleFreq, now);
+            twinkle.frequency.exponentialRampToValueAtTime(twinkleFreq * 1.2, now + 0.05);
+            twinkle.frequency.exponentialRampToValueAtTime(twinkleFreq * 0.9, now + 0.15);
+
+            const twinkleGain = this.ctx.createGain();
+            twinkleGain.gain.setValueAtTime(0.0001, now);
+            twinkleGain.gain.exponentialRampToValueAtTime(0.4, now + 0.01);
+            twinkleGain.gain.exponentialRampToValueAtTime(0.2, now + 0.1);
+            twinkleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+            twinkle.connect(twinkleGain);
+            twinkleGain.connect(dest);
+            twinkle.start(now);
+            twinkle.stop(now + 0.28);
+
+            // High shimmer
+            const shimmer = this.ctx.createOscillator();
+            shimmer.type = 'sine';
+            shimmer.frequency.setValueAtTime(twinkleFreq * 2.5, now);
+
+            const shimmerGain = this.ctx.createGain();
+            shimmerGain.gain.setValueAtTime(0.0001, now);
+            shimmerGain.gain.exponentialRampToValueAtTime(0.2, now + 0.008);
+            shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+            shimmer.connect(shimmerGain);
+            shimmerGain.connect(dest);
+            shimmer.start(now);
+            shimmer.stop(now + 0.15);
+
+            // Sparkle noise
+            const sparkleDur = 0.08;
+            const sparkleBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * sparkleDur), this.ctx.sampleRate);
+            const sparkleData = sparkleBuffer.getChannelData(0);
+            for (let i = 0; i < sparkleData.length; i++) {
+                const t = i / sparkleData.length;
+                sparkleData[i] = (Math.random() * 2 - 1) * Math.sin(t * Math.PI) * 0.5;
+            }
+
+            const sparkleSrc = this.ctx.createBufferSource();
+            sparkleSrc.buffer = sparkleBuffer;
+
+            const sparkleHP = this.ctx.createBiquadFilter();
+            sparkleHP.type = 'highpass';
+            sparkleHP.frequency.value = 4000;
+
+            const sparkleGain = this.ctx.createGain();
+            sparkleGain.gain.setValueAtTime(0.0001, now);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.15, now + 0.01);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.0001, now + sparkleDur);
+
+            sparkleSrc.connect(sparkleHP);
+            sparkleHP.connect(sparkleGain);
+            sparkleGain.connect(dest);
+            sparkleSrc.start(now);
+            sparkleSrc.stop(now + sparkleDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
 }
 
 // Expose a simple global audio manager

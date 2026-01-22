@@ -378,6 +378,34 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
     display: none;
 }
 
+/* Failed state - both buttons use primary style, reorder so LEVELS is left, RETRY is right */
+.round-modal-content.fail-state .modal-buttons {
+    flex-direction: row-reverse;
+}
+
+.round-modal-content.fail-state .modal-btn.secondary {
+    background: #F0F0F0;
+    color: #777;
+    box-shadow:
+        0 4px 12px rgba(0,0,0,0.08),
+        0 2px 4px rgba(0,0,0,0.06);
+}
+
+.round-modal-content.fail-state .modal-btn.secondary:hover {
+    background: #EAEAEA;
+    color: #666;
+    transform: translateY(1px);
+    box-shadow:
+        0 2px 8px rgba(0,0,0,0.1);
+}
+
+.round-modal-content.fail-state .modal-btn.secondary:active {
+    background: #E5E5E5;
+    transform: translateY(2px);
+    box-shadow:
+        0 1px 4px rgba(0,0,0,0.1);
+}
+
 /* Ball bonus animation area */
 .ball-bonus-area {
     margin: 16px 0;
@@ -790,7 +818,7 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 .trail-preview.confetti { background: linear-gradient(45deg, #FF6B6B 25%, #4ECDC4 25%, #4ECDC4 50%, #FFE66D 50%, #FFE66D 75%, #95E1D3 75%); }
 
 /* =============================================
-   Bottom UI Panel - Arcade Minimal Design
+   Bottom UI Panel - Clean 3-Card Neumorphic Design
    ============================================= */
 
 #bottom-ui-panel {
@@ -804,81 +832,60 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
     transform-origin: bottom left;
 }
 
-/* Hide the separate curve element */
-.bottom-ui-curve {
-    display: none;
-}
-
-/* Main content area - soft neumorphic style */
+/* Main container - neutral gray background */
 .bottom-ui-content {
-    background: linear-gradient(180deg, #F5F5F5 0%, #EBEBEB 100%);
-    padding: 0;
+    background: #f4f4f4;
+    padding: 16px 20px;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: stretch;
-    min-height: 80px;
+    gap: 16px;
+    min-height: 100px;
     position: relative;
     pointer-events: auto;
-    border-radius: 24px 24px 0 0;
+    border-radius: 20px 20px 0 0;
     box-shadow:
-        0 -8px 30px rgba(0,0,0,0.06),
+        0 -4px 20px rgba(0,0,0,0.08),
         inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
-/* Player score sections - soft neumorphic style */
-.bottom-player {
+/* Individual stat cards - neumorphic raised style */
+.stat-card {
     flex: 1;
+    max-width: 220px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 14px 20px;
-    position: relative;
-    margin: 10px;
-    background: linear-gradient(145deg, #FAFAFA, #E8E8E8);
+    padding: 16px 24px;
+    background: #f4f4f4;
     border-radius: 16px;
     box-shadow:
-        4px 4px 12px rgba(0,0,0,0.06),
-        -4px -4px 12px rgba(255,255,255,0.8),
-        inset 0 1px 0 rgba(255,255,255,0.9);
+        -6px -6px 12px rgba(255,255,255,0.9),
+        6px 6px 12px rgba(0,0,0,0.12);
     transition: all 0.2s ease;
 }
 
-.bottom-player.p1 {
-    margin-left: 12px;
-    margin-right: 4px;
-}
-
-.bottom-player.p2 {
-    margin-right: 12px;
-    margin-left: 4px;
-}
-
-/* Active player - pressed neumorphic */
-.bottom-player.active {
-    background: linear-gradient(145deg, #E8E8E8, #FAFAFA);
+/* Hover state for cards */
+.stat-card:hover {
     box-shadow:
-        inset 3px 3px 8px rgba(0,0,0,0.08),
-        inset -3px -3px 8px rgba(255,255,255,0.6),
-        0 1px 0 rgba(255,255,255,0.5);
+        -4px -4px 8px rgba(255,255,255,0.95),
+        4px 4px 8px rgba(0,0,0,0.15);
 }
 
-.bottom-player.active .player-badge {
-    color: #333;
-}
-
-.player-badge {
-    font-size: 10px;
+/* Labels - small uppercase */
+.stat-card-label {
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: #AAA;
-    margin-bottom: 6px;
-    transition: color 0.2s ease;
+    color: #999;
+    margin-bottom: 8px;
 }
 
-.player-score-value {
-    font-size: 28px;
+/* Values - large bold numbers */
+.stat-card-value {
+    font-size: 32px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #555;
@@ -886,125 +893,65 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
     letter-spacing: -0.5px;
 }
 
-.player-balls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: #888;
-}
-
-.ball-icon {
-    width: 10px;
-    height: 10px;
-    background: linear-gradient(145deg, #666, #444);
-    border-radius: 50%;
-    box-shadow:
-        1px 1px 3px rgba(0,0,0,0.2),
-        inset 0 1px 1px rgba(255,255,255,0.2);
-}
-
-/* Center stats area */
-.bottom-center {
-    flex: 1.4;
+/* Row layout for targets (icon + value) */
+.stat-card-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 10px 20px;
+    gap: 10px;
 }
 
-.center-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    background: linear-gradient(145deg, #FAFAFA, #E8E8E8);
-    border-radius: 16px;
-    padding: 12px 18px;
-    box-shadow:
-        4px 4px 12px rgba(0,0,0,0.06),
-        -4px -4px 12px rgba(255,255,255,0.8),
-        inset 0 1px 0 rgba(255,255,255,0.9);
-}
-
-.center-stat .stat-label {
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: #AAA;
-}
-
-/* Orange peg stat - neumorphic with subtle orange accent */
-.orange-stat {
-    background: linear-gradient(145deg, #FAFAFA, #E8E8E8);
-    padding: 12px 18px;
-    border-radius: 16px;
-    box-shadow:
-        4px 4px 12px rgba(0,0,0,0.06),
-        -4px -4px 12px rgba(255,255,255,0.8),
-        inset 0 1px 0 rgba(255,255,255,0.9);
-}
-
-.orange-stat .stat-label {
-    color: #AAA;
-}
-
-.orange-stat .stat-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Target icon - orange peg indicator */
-.orange-peg-icon {
-    width: 14px;
-    height: 14px;
-    background: #FF6B00;
+/* Target indicator - circular peg icon */
+.target-indicator {
+    width: 16px;
+    height: 16px;
+    background: #C8C8C8;
     border-radius: 50%;
-    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2);
-}
-
-.orange-stat .stat-value {
-    font-size: 26px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: #555;
-    line-height: 1;
-}
-
-/* Combo/multiplier stat - neumorphic */
-.combo-stat {
-    padding: 12px 18px;
-    background: linear-gradient(145deg, #FAFAFA, #E8E8E8);
-    border-radius: 16px;
     box-shadow:
-        4px 4px 12px rgba(0,0,0,0.06),
-        -4px -4px 12px rgba(255,255,255,0.8),
-        inset 0 1px 0 rgba(255,255,255,0.9);
+        inset -2px -2px 4px rgba(255,255,255,0.6),
+        inset 2px 2px 4px rgba(0,0,0,0.1);
+    position: relative;
 }
 
-.combo-stat .stat-value {
-    font-size: 18px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
+/* Inner ring for target indicator */
+.target-indicator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background: #AAA;
+    border-radius: 50%;
+}
+
+/* Score card specific */
+.score-card .stat-card-value {
+    color: #444;
+}
+
+/* Targets card specific */
+.targets-card .stat-card-value {
+    color: #555;
+}
+
+/* Combo card specific */
+.combo-card .stat-card-value {
+    font-size: 28px;
     color: #555;
 }
 
 /* Settings gear button - neumorphic */
 .bottom-gear {
     position: absolute;
-    right: 14px;
-    bottom: 50%;
-    transform: translateY(50%);
-    width: 36px;
-    height: 36px;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
     border: none;
-    background: linear-gradient(145deg, #FAFAFA, #E0E0E0);
+    background: #f4f4f4;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -1014,21 +961,21 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
     transition: all 0.15s ease;
     pointer-events: auto;
     box-shadow:
-        3px 3px 8px rgba(0,0,0,0.08),
-        -3px -3px 8px rgba(255,255,255,0.9);
+        -4px -4px 8px rgba(255,255,255,0.9),
+        4px 4px 8px rgba(0,0,0,0.12);
 }
 
 .bottom-gear:hover {
     color: #555;
     box-shadow:
-        2px 2px 6px rgba(0,0,0,0.1),
-        -2px -2px 6px rgba(255,255,255,0.9);
+        -3px -3px 6px rgba(255,255,255,0.95),
+        3px 3px 6px rgba(0,0,0,0.15);
 }
 
 .bottom-gear:active {
     box-shadow:
-        inset 2px 2px 6px rgba(0,0,0,0.08),
-        inset -2px -2px 6px rgba(255,255,255,0.5);
+        inset -2px -2px 5px rgba(255,255,255,0.8),
+        inset 2px 2px 5px rgba(0,0,0,0.1);
 }
 
 .bottom-gear svg {
@@ -1237,8 +1184,7 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 
 .tool-peg.green {
     background: #00DD44;
-    border: 2px solid #00FF66;
-    box-shadow: 0 0 8px rgba(0, 255, 85, 0.5);
+    border: 2px solid #00AA22;
 }
 
 .tool-icon {
@@ -1690,11 +1636,6 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 .rule-peg.green {
     background: linear-gradient(145deg, #44EE66, #00CC33);
     border: 2px solid #00AA22;
-    box-shadow:
-        0 3px 6px rgba(0,0,0,0.2),
-        0 0 12px rgba(0,221,68,0.4),
-        inset 0 -4px 8px rgba(0,0,0,0.15),
-        inset 0 4px 8px rgba(255,255,255,0.3);
 }
 
 /* Mini tube icon for free ball - SVG version */
@@ -1897,6 +1838,8 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 .level-card-info {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
     gap: 2px;
 }
 

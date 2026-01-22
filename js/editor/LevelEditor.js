@@ -812,10 +812,7 @@ class LevelEditor {
                 ctx.strokeStyle = '#FF8C00';
             } else if (peg.type === 'green') {
                 ctx.fillStyle = '#00DD44';
-                ctx.strokeStyle = '#00FF66';
-                // Add glow for green
-                ctx.shadowColor = '#00FF55';
-                ctx.shadowBlur = 10 * scale;
+                ctx.strokeStyle = '#00AA22';
             } else {
                 ctx.fillStyle = CONFIG.COLORS.peg;
                 ctx.strokeStyle = 'rgba(0,0,0,0.2)';

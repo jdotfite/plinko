@@ -134,7 +134,7 @@ const CONFIG = {
         splitter: { name: 'Splitter', desc: 'Splits into 2, then 4 rainbow balls', color: '#8E44AD' },
         firework: { name: 'Firework', desc: 'Rockets up and explodes in the sky', color: '#FF1493' },
         antigravity: { name: 'Anti-Gravity', desc: 'Ball floats upward like a rocket', color: '#7B68EE' },
-        bouncy: { name: 'Bouncy Ball', desc: 'Gains energy with each bounce', color: '#32CD32' },
+        bouncy: { name: 'Bouncy Ball', desc: 'Gains energy with each bounce', color: '#FFD700' },
         blackhole: { name: 'Black Hole', desc: 'Creates a gravity well', color: '#191970' }
     },
 

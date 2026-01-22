@@ -63,24 +63,127 @@ This is Peggle's secret weapon. When the last orange peg is hit:
 
 ---
 
-## Phase 2: Strategic Depth (Power-Ups)
+## Phase 2: Strategic Depth (Power-Ups) ✅ COMPLETE
 
 **Goal:** Add replayability through varied abilities.
 
-### 2.1 Green Peg System
-- [ ] 2 green pegs per level (randomized position)
-- [ ] Hitting green peg activates current power-up
-- [ ] Visual: bright green glow, distinct shape
+### 2.1 Green Peg System ✅
+- [x] 2-6 green pegs per level (configurable)
+- [x] Hitting green peg activates random power-up from enabled list
+- [x] Visual: bright green pulsing glow
 
-### 2.2 Power-Up Abilities (Start with 3-4)
+### 2.2 Power-Up Abilities
 
-| Power-Up | Effect | Peggle Equivalent |
-|----------|--------|-------------------|
-| **Multiball** | Splits into 3 balls | Bjorn's Super Guide |
-| **Fireball** | Ball burns through pegs (no bounce) for 3 seconds | Tula's Flower Power |
-| **Spooky Ball** | Ball reappears at top when falling out | Kat's Shadow |
-| **Zen Ball** | Shows optimal trajectory for next 3 bounces | Warren's Lucky Spin |
-| **Space Blast** | All nearby pegs explode on hit | Jimmy's Pyramid |
+All power-ups are triggered by hitting **green pegs**. A random power-up from the enabled list is chosen.
+
+---
+
+#### **IMPLEMENTED POWER-UPS**
+
+| Power-Up | Color | Effect | Visual |
+|----------|-------|--------|--------|
+| **Multiball** | Green | Spawns 2 extra balls from current position | Balls split outward at angles |
+| **Fireball** | Orange/Red | Burns through 8 pegs without bouncing. Pegs catch fire and burn for 600ms before disappearing | Flaming ball, fire trail, pegs burn with flames and smoke, char and crack |
+| **Spooky Ball** | Purple | If ball falls out bottom, respawns at top for second chance | Purple ghost aura, swirling particles on respawn |
+| **Zen Ball** | Blue | Extended trajectory guide for 10 seconds (shows more bounces) | Calm blue glow |
+| **Thunder** | Cyan | Lightning chains to 5 nearby pegs when hitting the green peg | Electric blue ball, jagged lightning bolts to nearby pegs |
+| **Sniper** | Red | Removes randomness from physics - precise aim | Focused red glow |
+| **Ghost** | Gray/Purple | Phases through 12 pegs (still scores) without bouncing | Transparent ethereal ball, smoke trail |
+| **Magnet** | Pink | Ball curves toward nearest orange peg | Pink glow, magnetic field rings pulsing outward |
+| **Space Blast** | Orange | Explodes on each peg hit (3 explosions), destroying nearby pegs | Bomb-like ball with fuse spark, expanding explosion rings |
+| **Splitter** | Rainbow | Splits into additional ball on each peg hit (up to 3 splits) | Rainbow prism shifting colors |
+| **Firework** | Pink/Magenta | When ball exits bottom, rockets back UP, explodes at peak destroying pegs in radius | Rocket exhaust trail while launching, multi-colored spark explosion at peak |
+| **Anti-Gravity** | Purple/Violet | Reverses gravity for 4 seconds - ball falls upward | Swirling purple rings, upward arrows, particles rising |
+| **Bouncy Ball** | Green | Gains 15% energy per bounce (pegs & walls), caps at 2.5x. Ball gets progressively crazier | Expanding green rings that intensify, brighter glow, screen shake at high energy |
+| **Black Hole** | Dark Purple | Creates gravity well at peg location. Pegs get visibly pulled in over 2.5 seconds, then collapses destroying remaining nearby pegs | Swirling void with accretion disk, particles spiraling in, implosion flash |
+
+---
+
+#### **POWER-UP DETAILS**
+
+##### Fireball (Enhanced)
+```
+Phase 1: Ball hits peg
+- Peg catches fire (doesn't disappear yet)
+- Flames flicker around the peg
+- Ball passes through without bouncing
+
+Phase 2: Burning (600ms)
+- Flames dance around peg
+- Smoke particles rise
+- Peg darkens and chars
+- Ember cracks glow through surface
+
+Phase 3: Destruction
+- Peg is removed and scored
+- Ash/ember particles scatter
+```
+
+##### Firework
+```
+Phase 1: Falling
+- Normal ball behavior with sparkle effect
+- Pink/magenta glow
+
+Phase 2: Launch (when ball exits bottom)
+- Ball resets to bottom of play area
+- Strong upward velocity (-22)
+- Rocket exhaust trail (yellow/orange particles)
+- Screen shake on launch
+
+Phase 3: Explosion (when velocity reverses at peak)
+- 24 sparks fly outward in 6 colors
+- Each spark has trailing sparkles
+- Gravity affects sparks (they arc down)
+- All pegs in 200px radius destroyed
+- Cascading destruction effect
+```
+
+##### Anti-Gravity
+```
+Duration: 4 seconds
+- Gravity multiplied by -1.2 (stronger upward than normal downward)
+- Creates interesting ricochet patterns
+- Ball can hit upper pegs multiple times
+- Visual: swirling rings, upward arrows
+- "ANTI-GRAVITY" text popup
+```
+
+##### Bouncy Ball
+```
+Mechanics:
+- +15% energy per bounce (pegs OR walls)
+- Caps at 2.5x normal energy
+- Energy boost applied to velocity after each bounce
+
+Visuals:
+- Green glow that intensifies with energy
+- Expanding rings (more rings at higher energy)
+- Pulse rate increases with energy
+- Screen shake when energy > 1.8x
+```
+
+##### Black Hole
+```
+Phase 1: Forming (300ms)
+- Dark vortex expands
+- Imploding ring effect
+
+Phase 2: Active (2000ms)
+- Pegs within 180px radius get PULLED toward center
+- Pegs visibly move each frame
+- Balls also gently pulled (except the master ball)
+- Swirling particle accretion disk
+- Pegs absorbed when within 30px
+
+Phase 3: Collapsing (500ms)
+- Final destruction of remaining nearby pegs
+- Bright implosion flash
+- White core collapse
+- Screen shake
+```
+
+---
 
 ### 2.3 Purple Peg (Bonus Points)
 - [ ] 1 purple peg per turn (changes position each shot)
