@@ -1721,9 +1721,17 @@ class Game {
         const scoreEl = document.getElementById('modal-score');
         if (scoreEl) scoreEl.textContent = score.toLocaleString();
 
-        // Update targets remaining
+        // Update targets remaining - show CLEARED! if 0
         const targetsEl = document.getElementById('modal-targets');
-        if (targetsEl) targetsEl.textContent = this.orangePegsRemaining;
+        if (targetsEl) {
+            if (this.orangePegsRemaining === 0) {
+                targetsEl.textContent = 'CLEARED!';
+                targetsEl.classList.add('cleared');
+            } else {
+                targetsEl.textContent = this.orangePegsRemaining;
+                targetsEl.classList.remove('cleared');
+            }
+        }
 
         // Update balls display
         const ballsEl = document.getElementById('modal-balls');
@@ -1771,37 +1779,80 @@ class Game {
     }
 
     /**
-     * Animate ball bonus counting with sounds
+     * Animate ball bonus counting with visual balls and score popups
      */
     _animateBallBonus(ballsRemaining, bonusPerBall, startScore, scoreEl, ballsEl, starEls) {
-        let currentBalls = ballsRemaining;
+        const bonusArea = document.getElementById('ball-bonus-area');
+        const ballsDisplay = document.getElementById('bonus-balls-display');
+        const popupEl = document.getElementById('bonus-score-popup');
+
+        // Show bonus area and create ball elements
+        if (bonusArea && ballsDisplay) {
+            bonusArea.classList.remove('hidden');
+            ballsDisplay.innerHTML = '';
+
+            // Create visual balls
+            for (let i = 0; i < ballsRemaining; i++) {
+                const ball = document.createElement('div');
+                ball.className = 'bonus-ball';
+                ball.id = `bonus-ball-${i}`;
+                ballsDisplay.appendChild(ball);
+            }
+        }
+
+        let currentBallIndex = 0;
         let currentScore = startScore;
         const totalBalls = ballsRemaining;
-        const interval = 180; // ms between each ball count
+        const interval = 250; // ms between each ball count
 
         const countNext = () => {
-            if (currentBalls <= 0) {
+            if (currentBallIndex >= totalBalls) {
                 // All balls counted, update player score and show stars
                 this.players[0].score = currentScore;
                 const finalStars = this.getStarRating(currentScore);
+
+                // Hide bonus area after a delay
+                setTimeout(() => {
+                    if (bonusArea) bonusArea.classList.add('hidden');
+                }, 300);
+
                 this._animateStars(starEls, finalStars, true);
                 this._saveProgress(currentScore, true);
                 return;
             }
 
-            // Decrement ball, add bonus
-            currentBalls--;
+            // Get current ball element
+            const ballEl = document.getElementById(`bonus-ball-${currentBallIndex}`);
+
+            // Highlight current ball
+            if (ballEl) {
+                ballEl.classList.add('counting');
+            }
+
+            // Add bonus to score
             currentScore += bonusPerBall;
 
             // Update displays
-            if (ballsEl) ballsEl.textContent = currentBalls;
+            const remaining = totalBalls - currentBallIndex - 1;
+            if (ballsEl) ballsEl.textContent = remaining;
             if (scoreEl) scoreEl.textContent = currentScore.toLocaleString();
 
             // Play sound with ascending pitch
-            const ballIndex = totalBalls - currentBalls;
-            const pitchFactor = 0.9 + (ballIndex / totalBalls) * 0.4; // 0.9 to 1.3
+            const pitchFactor = 0.9 + (currentBallIndex / totalBalls) * 0.4;
             if (window.audioManager && typeof window.audioManager.playBallBonus === 'function') {
                 window.audioManager.playBallBonus({ pitch: pitchFactor });
+            }
+
+            // Show score popup near the ball
+            if (popupEl && ballEl) {
+                const rect = ballEl.getBoundingClientRect();
+                const containerRect = ballsDisplay.getBoundingClientRect();
+                popupEl.textContent = `+${bonusPerBall.toLocaleString()}`;
+                popupEl.style.left = `${rect.left - containerRect.left + 12}px`;
+                popupEl.style.top = `${rect.top - containerRect.top - 10}px`;
+                popupEl.classList.remove('show');
+                void popupEl.offsetWidth; // Trigger reflow
+                popupEl.classList.add('show');
             }
 
             // Flash score for emphasis
@@ -1814,12 +1865,22 @@ class Game {
                 }, 100);
             }
 
+            // After a short delay, mark ball as counted
+            setTimeout(() => {
+                if (ballEl) {
+                    ballEl.classList.remove('counting');
+                    ballEl.classList.add('counted');
+                }
+            }, 150);
+
+            currentBallIndex++;
+
             // Schedule next
             setTimeout(countNext, interval);
         };
 
         // Start counting after a short delay
-        setTimeout(countNext, 400);
+        setTimeout(countNext, 500);
     }
 
     /**
@@ -1919,7 +1980,6 @@ class Game {
             const thresholds = levelData && levelData.starThresholds
                 ? levelData.starThresholds
                 : [4000, 5000, 6000];
-            const thresholdText = thresholds.map(t => (t / 1000).toFixed(0) + 'k').join(' / ');
 
             card.innerHTML = `
                 <div class="level-card-preview">
@@ -1929,10 +1989,14 @@ class Game {
                 <div class="level-card-info">
                     <div class="level-card-name">${name}</div>
                     <div class="level-card-subtitle">${subtitle}</div>
-                    <div class="level-card-stars">
-                        ${[1, 2, 3].map(s => `<div class="fun-star small ${s <= starsEarned ? 'earned' : ''}">${starSvg}</div>`).join('')}
+                    <div class="level-card-stars-row">
+                        ${[0, 1, 2].map(s => `
+                            <div class="star-with-threshold">
+                                <div class="fun-star small ${s < starsEarned ? 'earned' : ''}">${starSvg}</div>
+                                <div class="threshold-value">${(thresholds[s] / 1000).toFixed(0)}k</div>
+                            </div>
+                        `).join('')}
                     </div>
-                    <div class="level-card-thresholds">★ ${thresholdText}</div>
                 </div>
             `;
 

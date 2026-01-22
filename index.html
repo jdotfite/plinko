@@ -214,26 +214,31 @@
                     <div class="stat-label">SCORE</div>
                     <div class="stat-value" id="modal-score">0</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box targets-box">
                     <div class="stat-label">TARGETS</div>
-                    <div class="stat-value-row">
-                        <span class="mini-peg"></span>
-                        <span id="modal-targets">25</span>
-                    </div>
+                    <div class="stat-value" id="modal-targets">25</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box balls-box">
                     <div class="stat-label">BALLS</div>
                     <div class="stat-value" id="modal-balls">10</div>
                 </div>
             </div>
 
-            <!-- Action buttons -->
+            <!-- Ball bonus animation area -->
+            <div class="ball-bonus-area hidden" id="ball-bonus-area">
+                <div class="ball-bonus-visual">
+                    <div class="bonus-balls" id="bonus-balls-display"></div>
+                    <div class="bonus-score-popup" id="bonus-score-popup"></div>
+                </div>
+            </div>
+
+            <!-- Action buttons - RETRY on left, main on right -->
             <div class="modal-buttons">
-                <button class="modal-btn primary" id="round-modal-ok">
-                    <span>PLAY</span>
-                </button>
                 <button class="modal-btn secondary hidden" id="round-modal-retry">
                     <span>RETRY</span>
+                </button>
+                <button class="modal-btn primary" id="round-modal-ok">
+                    <span>PLAY</span>
                 </button>
             </div>
         </div>
@@ -284,11 +289,33 @@
                     </div>
                     <div class="rule-item bucket-rule">
                         <div class="rule-icon-wrap">
-                            <div class="bucket-icon">
-                                <div class="bucket-rim"></div>
-                                <div class="bucket-hole"></div>
-                                <div class="bucket-body"></div>
-                                <div class="bucket-arrow">↓</div>
+                            <div class="mini-tube">
+                                <svg viewBox="0 0 60 40" width="48" height="32">
+                                    <!-- Pipe body with gradient -->
+                                    <defs>
+                                        <linearGradient id="tubeBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style="stop-color:#c8c8c8"/>
+                                            <stop offset="15%" style="stop-color:#f0f0f0"/>
+                                            <stop offset="50%" style="stop-color:#ffffff"/>
+                                            <stop offset="85%" style="stop-color:#f0f0f0"/>
+                                            <stop offset="100%" style="stop-color:#c8c8c8"/>
+                                        </linearGradient>
+                                        <radialGradient id="tubeHoleGrad" cx="50%" cy="50%" r="50%">
+                                            <stop offset="0%" style="stop-color:#000000"/>
+                                            <stop offset="70%" style="stop-color:#1a1a1a"/>
+                                            <stop offset="100%" style="stop-color:#333333"/>
+                                        </radialGradient>
+                                    </defs>
+                                    <!-- Pipe body -->
+                                    <path d="M5 12 L5 30 Q5 38 30 38 Q55 38 55 30 L55 12 Q55 6 30 6 Q5 6 5 12 Z" fill="url(#tubeBodyGrad)" stroke="#bbb" stroke-width="1"/>
+                                    <!-- Rim ellipse -->
+                                    <ellipse cx="30" cy="12" rx="25" ry="6" fill="url(#tubeBodyGrad)" stroke="#bbb" stroke-width="1"/>
+                                    <!-- Inner hole -->
+                                    <ellipse cx="30" cy="14" rx="18" ry="4" fill="url(#tubeHoleGrad)"/>
+                                    <!-- Highlight -->
+                                    <ellipse cx="30" cy="11" rx="22" ry="4" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/>
+                                </svg>
+                                <div class="tube-arrow">↓</div>
                             </div>
                         </div>
                         <div class="rule-text">
@@ -487,30 +514,30 @@
     </div>
 
     <!-- Load scripts in order -->
-    <script src="js/config.js?v=30"></script>
-    <script src="js/utils.js?v=30"></script>
-    <script src="js/utils/AudioHelper.js?v=30"></script>
-    <script src="js/core/ThemeManager.js?v=30"></script>
-    <script src="js/physics/Vector.js?v=30"></script>
-    <script src="js/physics/Collision.js?v=30"></script>
-    <script src="js/entities/Ball.js?v=30"></script>
-    <script src="js/entities/Peg.js?v=30"></script>
-    <script src="js/entities/Slot.js?v=30"></script>
-    <script src="js/entities/GoalMouth.js?v=30"></script>
-    <script src="js/entities/FeverSlots.js?v=30"></script>
-    <script src="js/entities/Magazine.js?v=30"></script>
-    <script src="js/layouts/Layout.js?v=30"></script>
-    <script src="js/layouts/Layouts.js?v=30"></script>
-    <script src="js/levels/LevelData.js?v=30"></script>
-    <script src="js/trails/TrailSystem.js?v=30"></script>
-    <script src="js/entities/Board.js?v=30"></script>
-    <script src="js/core/Renderer.js?v=30"></script>
-    <script src="js/core/InputHandler.js?v=30"></script>
-    <script src="js/core/Game.js?v=30"></script>
-    <script src="js/sound.js?v=30"></script>
-    <script src="js/admin.js?v=30"></script>
-    <script src="js/particles.js?v=30"></script>
-    <script src="js/editor/LevelEditor.js?v=30"></script>
-    <script src="js/main.js?v=30"></script>
+    <script src="js/config.js?v=31"></script>
+    <script src="js/utils.js?v=31"></script>
+    <script src="js/utils/AudioHelper.js?v=31"></script>
+    <script src="js/core/ThemeManager.js?v=31"></script>
+    <script src="js/physics/Vector.js?v=31"></script>
+    <script src="js/physics/Collision.js?v=31"></script>
+    <script src="js/entities/Ball.js?v=31"></script>
+    <script src="js/entities/Peg.js?v=31"></script>
+    <script src="js/entities/Slot.js?v=31"></script>
+    <script src="js/entities/GoalMouth.js?v=31"></script>
+    <script src="js/entities/FeverSlots.js?v=31"></script>
+    <script src="js/entities/Magazine.js?v=31"></script>
+    <script src="js/layouts/Layout.js?v=31"></script>
+    <script src="js/layouts/Layouts.js?v=31"></script>
+    <script src="js/levels/LevelData.js?v=31"></script>
+    <script src="js/trails/TrailSystem.js?v=31"></script>
+    <script src="js/entities/Board.js?v=31"></script>
+    <script src="js/core/Renderer.js?v=31"></script>
+    <script src="js/core/InputHandler.js?v=31"></script>
+    <script src="js/core/Game.js?v=31"></script>
+    <script src="js/sound.js?v=31"></script>
+    <script src="js/admin.js?v=31"></script>
+    <script src="js/particles.js?v=31"></script>
+    <script src="js/editor/LevelEditor.js?v=31"></script>
+    <script src="js/main.js?v=31"></script>
 </body>
 </html>
