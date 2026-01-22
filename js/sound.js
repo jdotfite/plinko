@@ -1227,6 +1227,178 @@ class SoundManager {
     }
 
     /**
+     * Level failed sound - sad descending tones
+     */
+    playLevelFail() {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Descending minor tones - sad "wah wah wah" feel
+            const notes = [392, 349.23, 311.13]; // G4, F4, Eb4 - descending minor
+            const spacing = 0.25;
+
+            notes.forEach((freq, i) => {
+                const startTime = now + i * spacing;
+
+                // Main tone with slight vibrato for sad effect
+                const osc = this.ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, startTime);
+                // Slight pitch drop for each note
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.95, startTime + 0.2);
+
+                const g = this.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, startTime);
+                g.gain.exponentialRampToValueAtTime(0.4, startTime + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.2, startTime + 0.15);
+                g.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.35);
+
+                // Low pass for muffled, sad tone
+                const lp = this.ctx.createBiquadFilter();
+                lp.type = 'lowpass';
+                lp.frequency.value = 1200;
+
+                osc.connect(lp);
+                lp.connect(g);
+                g.connect(dest);
+
+                osc.start(startTime);
+                osc.stop(startTime + 0.4);
+
+                // Subtle low octave for depth
+                if (i === 0) {
+                    const low = this.ctx.createOscillator();
+                    low.type = 'sine';
+                    low.frequency.setValueAtTime(freq / 2, startTime);
+                    low.frequency.exponentialRampToValueAtTime(freq / 2 * 0.9, startTime + 0.3);
+
+                    const lowG = this.ctx.createGain();
+                    lowG.gain.setValueAtTime(0.0001, startTime);
+                    lowG.gain.exponentialRampToValueAtTime(0.25, startTime + 0.03);
+                    lowG.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.5);
+
+                    low.connect(lowG);
+                    lowG.connect(dest);
+                    low.start(startTime);
+                    low.stop(startTime + 0.55);
+                }
+            });
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
+     * Ball bonus count sound - coin ching for each ball counted
+     * Accepts options: { pitch: number } for ascending pitch
+     */
+    playBallBonus(opts) {
+        if (window.audioMuted) return;
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) this.ctx = new Ctx(); else return;
+            }
+            if (this.ctx && !this.masterGain) {
+                try {
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (e) { this.masterGain = null; }
+            }
+
+            const now = this.ctx.currentTime;
+            const dest = this.masterGain || this.ctx.destination;
+
+            // Parse options
+            let pitchFactor = 1.0;
+            if (opts && typeof opts === 'object') {
+                if (typeof opts.pitch === 'number') pitchFactor = opts.pitch;
+            }
+
+            // Bright coin ching sound
+            const baseFreq = 1800 * pitchFactor;
+
+            // Main chime
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(baseFreq, now);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.9, now + 0.1);
+
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.45, now + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.15, now + 0.08);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+            osc.connect(g);
+            g.connect(dest);
+            osc.start(now);
+            osc.stop(now + 0.22);
+
+            // High shimmer overtone
+            const shimmer = this.ctx.createOscillator();
+            shimmer.type = 'sine';
+            shimmer.frequency.setValueAtTime(baseFreq * 2.5, now);
+
+            const shimmerG = this.ctx.createGain();
+            shimmerG.gain.setValueAtTime(0.0001, now);
+            shimmerG.gain.exponentialRampToValueAtTime(0.2, now + 0.003);
+            shimmerG.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+            shimmer.connect(shimmerG);
+            shimmerG.connect(dest);
+            shimmer.start(now);
+            shimmer.stop(now + 0.12);
+
+            // Tiny metallic noise
+            const noiseDur = 0.04;
+            const noiseBuffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * noiseDur), this.ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseData.length; i++) {
+                const t = i / noiseData.length;
+                noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2);
+            }
+
+            const noiseSrc = this.ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuffer;
+
+            const noiseHP = this.ctx.createBiquadFilter();
+            noiseHP.type = 'highpass';
+            noiseHP.frequency.value = 4000;
+
+            const noiseG = this.ctx.createGain();
+            noiseG.gain.setValueAtTime(0.0001, now);
+            noiseG.gain.exponentialRampToValueAtTime(0.15, now + 0.002);
+            noiseG.gain.exponentialRampToValueAtTime(0.0001, now + noiseDur);
+
+            noiseSrc.connect(noiseHP);
+            noiseHP.connect(noiseG);
+            noiseG.connect(dest);
+            noiseSrc.start(now);
+            noiseSrc.stop(now + noiseDur);
+
+        } catch (e) {
+            // silent
+        }
+    }
+
+    /**
      * Style bonus sound - achievement sparkle
      */
     playStyleBonus() {

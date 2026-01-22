@@ -1680,7 +1680,9 @@ class Game {
         const retryBtn = document.getElementById('round-modal-retry');
         if (!modal || !okBtn) return;
 
-        const score = this.players[0].score;
+        let score = this.players[0].score;
+        const remainingBalls = this.shotsPerPlayer - this.shotsTaken[0];
+        const ballBonusPerBall = 1000; // Points per remaining ball
         this.levelCompleted = orangeCleared;
 
         // Track persistent stats for trail unlocks
@@ -1694,29 +1696,16 @@ class Game {
             this._checkTrailUnlocks();
         }
 
-        // Get star rating based on score
-        const stars = this.getStarRating(score);
-        const levelId = this.currentLevelData ? this.currentLevelData.id : `level_${this.currentLevelIndex + 1}`;
-
-        // Save progress if level completed
-        if (orangeCleared && window.LEVEL_PROGRESS) {
-            // Save stars (only updates if better than previous)
-            window.LEVEL_PROGRESS.setStars(levelId, stars);
-
-            // Unlock next level
-            const levelCount = window.getLevelCount ? window.getLevelCount() : 3;
-            if (this.currentLevelIndex + 1 < levelCount) {
-                const nextLevelId = `level_${this.currentLevelIndex + 2}`;
-                window.LEVEL_PROGRESS.unlock(nextLevelId);
-            }
-        }
-
         // Determine result message
         let title;
         if (orangeCleared) {
             title = 'Level Complete!';
         } else {
             title = 'Level Failed!';
+            // Play fail sound
+            if (window.audioManager && typeof window.audioManager.playLevelFail === 'function') {
+                window.audioManager.playLevelFail();
+            }
         }
 
         // Update modal level display
@@ -1728,7 +1717,7 @@ class Game {
         const titleEl = document.getElementById('round-modal-text');
         if (titleEl) titleEl.textContent = title;
 
-        // Update score display
+        // Update score display (initial, before bonus)
         const scoreEl = document.getElementById('modal-score');
         if (scoreEl) scoreEl.textContent = score.toLocaleString();
 
@@ -1736,35 +1725,34 @@ class Game {
         const targetsEl = document.getElementById('modal-targets');
         if (targetsEl) targetsEl.textContent = this.orangePegsRemaining;
 
-        // Update balls display (show remaining)
+        // Update balls display
         const ballsEl = document.getElementById('modal-balls');
         if (ballsEl) {
-            const remaining = this.shotsPerPlayer - this.shotsTaken[0];
-            ballsEl.textContent = remaining;
+            ballsEl.textContent = remainingBalls;
         }
 
-        // Update stars - earned stars are gold, unearned are gray
+        // Initially hide stars (will animate in after bonus counting)
         const starEls = modal.querySelectorAll('.neu-star');
-        starEls.forEach((star, idx) => {
-            if (idx < stars && orangeCleared) {
-                star.classList.add('earned');
-            } else {
-                star.classList.remove('earned');
-            }
-        });
+        starEls.forEach(star => star.classList.remove('earned'));
 
         // Show both buttons - RETRY always visible
         if (retryBtn) {
             retryBtn.classList.remove('hidden');
         }
 
-        if (orangeCleared) {
-            okBtn.querySelector('span').textContent = 'LEVELS';
-        } else {
-            okBtn.querySelector('span').textContent = 'LEVELS';
-        }
+        okBtn.querySelector('span').textContent = 'LEVELS';
 
         modal.classList.remove('hidden');
+
+        // If level completed and has remaining balls, animate bonus counting
+        if (orangeCleared && remainingBalls > 0) {
+            this._animateBallBonus(remainingBalls, ballBonusPerBall, score, scoreEl, ballsEl, starEls);
+        } else {
+            // No bonus, just show final stars
+            const finalStars = this.getStarRating(score);
+            this._animateStars(starEls, finalStars, orangeCleared);
+            this._saveProgress(score, orangeCleared);
+        }
 
         // Retry button - replay current level
         if (retryBtn) {
@@ -1780,6 +1768,96 @@ class Game {
             modal.classList.add('hidden');
             this.showLevelSelect();
         };
+    }
+
+    /**
+     * Animate ball bonus counting with sounds
+     */
+    _animateBallBonus(ballsRemaining, bonusPerBall, startScore, scoreEl, ballsEl, starEls) {
+        let currentBalls = ballsRemaining;
+        let currentScore = startScore;
+        const totalBalls = ballsRemaining;
+        const interval = 180; // ms between each ball count
+
+        const countNext = () => {
+            if (currentBalls <= 0) {
+                // All balls counted, update player score and show stars
+                this.players[0].score = currentScore;
+                const finalStars = this.getStarRating(currentScore);
+                this._animateStars(starEls, finalStars, true);
+                this._saveProgress(currentScore, true);
+                return;
+            }
+
+            // Decrement ball, add bonus
+            currentBalls--;
+            currentScore += bonusPerBall;
+
+            // Update displays
+            if (ballsEl) ballsEl.textContent = currentBalls;
+            if (scoreEl) scoreEl.textContent = currentScore.toLocaleString();
+
+            // Play sound with ascending pitch
+            const ballIndex = totalBalls - currentBalls;
+            const pitchFactor = 0.9 + (ballIndex / totalBalls) * 0.4; // 0.9 to 1.3
+            if (window.audioManager && typeof window.audioManager.playBallBonus === 'function') {
+                window.audioManager.playBallBonus({ pitch: pitchFactor });
+            }
+
+            // Flash score for emphasis
+            if (scoreEl) {
+                scoreEl.style.transform = 'scale(1.1)';
+                scoreEl.style.color = '#00CC33';
+                setTimeout(() => {
+                    scoreEl.style.transform = 'scale(1)';
+                    scoreEl.style.color = '';
+                }, 100);
+            }
+
+            // Schedule next
+            setTimeout(countNext, interval);
+        };
+
+        // Start counting after a short delay
+        setTimeout(countNext, 400);
+    }
+
+    /**
+     * Animate stars appearing one by one
+     */
+    _animateStars(starEls, starsEarned, levelCleared) {
+        const delay = 200; // ms between each star
+        starEls.forEach((star, idx) => {
+            setTimeout(() => {
+                if (idx < starsEarned && levelCleared) {
+                    star.classList.add('earned');
+                    // Play a small chime for each star
+                    if (window.audioManager && typeof window.audioManager.playBallBonus === 'function') {
+                        window.audioManager.playBallBonus({ pitch: 1.2 + idx * 0.15 });
+                    }
+                }
+            }, delay * (idx + 1));
+        });
+    }
+
+    /**
+     * Save progress to localStorage
+     */
+    _saveProgress(finalScore, orangeCleared) {
+        if (!orangeCleared || !window.LEVEL_PROGRESS) return;
+
+        const stars = this.getStarRating(finalScore);
+        const levelId = this.currentLevelData ? this.currentLevelData.id : `level_${this.currentLevelIndex + 1}`;
+
+        // Save stars (only updates if better than previous)
+        window.LEVEL_PROGRESS.setStars(levelId, stars);
+
+        // Unlock next level
+        const levelCount = window.getLevelCount ? window.getLevelCount() : 3;
+        if (this.currentLevelIndex + 1 < levelCount) {
+            const nextLevelId = `level_${this.currentLevelIndex + 2}`;
+            window.LEVEL_PROGRESS.unlock(nextLevelId);
+        }
     }
 
     /**
@@ -1837,6 +1915,12 @@ class Game {
             const name = levelData ? levelData.name : `Level ${idx + 1}`;
             const subtitle = levelData ? levelData.subtitle : '';
 
+            // Get star thresholds for display
+            const thresholds = levelData && levelData.starThresholds
+                ? levelData.starThresholds
+                : [4000, 5000, 6000];
+            const thresholdText = thresholds.map(t => (t / 1000).toFixed(0) + 'k').join(' / ');
+
             card.innerHTML = `
                 <div class="level-card-preview">
                     <div class="level-number">${idx + 1}</div>
@@ -1848,6 +1932,7 @@ class Game {
                     <div class="level-card-stars">
                         ${[1, 2, 3].map(s => `<div class="fun-star small ${s <= starsEarned ? 'earned' : ''}">${starSvg}</div>`).join('')}
                     </div>
+                    <div class="level-card-thresholds">★ ${thresholdText}</div>
                 </div>
             `;
 
