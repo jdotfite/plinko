@@ -241,77 +241,117 @@
 
     <!-- Intro Modal - First time game explanation -->
     <div id="intro-modal" class="intro-modal hidden" role="dialog" aria-modal="true">
-        <div class="intro-modal-content">
-            <div class="intro-header">
-                <h1>Welcome to Plinko!</h1>
-                <p class="intro-subtitle">Clear all orange pegs to win</p>
+        <div class="intro-modal-content fun-modal">
+            <!-- Fun banner header -->
+            <div class="fun-modal-banner">
+                <span>HOW TO PLAY</span>
             </div>
 
-            <div class="intro-rules">
-                <div class="rule-item">
-                    <div class="rule-icon orange-peg-icon"></div>
-                    <div class="rule-text">
-                        <strong>Orange Pegs</strong>
-                        <span>Hit all orange pegs to complete the level</span>
-                    </div>
-                </div>
-                <div class="rule-item">
-                    <div class="rule-icon blue-peg-icon"></div>
-                    <div class="rule-text">
-                        <strong>Blue Pegs</strong>
-                        <span>Worth 10 points each</span>
-                    </div>
-                </div>
-                <div class="rule-item">
-                    <div class="rule-icon green-peg-icon"></div>
-                    <div class="rule-text">
-                        <strong>Green Pegs</strong>
-                        <span>Trigger special power-ups!</span>
-                    </div>
-                </div>
-                <div class="rule-item">
-                    <div class="rule-icon goal-icon">🎯</div>
-                    <div class="rule-text">
-                        <strong>Free Ball</strong>
-                        <span>Land in the moving bucket for a free ball</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="intro-stars-info">
-                <div class="star-info-row">
-                    <span class="star earned">★</span>
-                    <span class="star earned">★</span>
-                    <span class="star earned">★</span>
-                </div>
-                <p>Earn stars by scoring high - hunt for 3 stars!</p>
-            </div>
-
-            <button class="intro-btn" id="intro-start-btn">
-                <span>LET'S PLAY!</span>
+            <!-- Close button -->
+            <button class="fun-modal-close" id="intro-close-btn" aria-label="Close">
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                </svg>
             </button>
+
+            <div class="intro-body">
+                <h1 class="intro-title">Welcome!</h1>
+
+                <div class="intro-rules">
+                    <div class="rule-item">
+                        <div class="rule-icon-wrap">
+                            <div class="rule-peg orange"></div>
+                        </div>
+                        <div class="rule-text">
+                            <strong>Hit all orange pegs to win!</strong>
+                        </div>
+                    </div>
+                    <div class="rule-item">
+                        <div class="rule-icon-wrap">
+                            <div class="rule-peg gray"></div>
+                        </div>
+                        <div class="rule-text">
+                            <strong>Gray pegs</strong> = 10 points
+                        </div>
+                    </div>
+                    <div class="rule-item">
+                        <div class="rule-icon-wrap">
+                            <div class="rule-peg green"></div>
+                        </div>
+                        <div class="rule-text">
+                            <strong>Green pegs</strong> = Power-ups!
+                        </div>
+                    </div>
+                    <div class="rule-item bucket-rule">
+                        <div class="rule-icon-wrap">
+                            <div class="bucket-icon">
+                                <div class="bucket-rim"></div>
+                                <div class="bucket-body"></div>
+                                <div class="bucket-arrow">↓</div>
+                            </div>
+                        </div>
+                        <div class="rule-text">
+                            <strong>Catch the bucket</strong> = Free ball!
+                        </div>
+                    </div>
+                </div>
+
+                <div class="intro-stars-section">
+                    <div class="intro-stars-row">
+                        <div class="fun-star big earned">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                        </div>
+                        <div class="fun-star big earned">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                        </div>
+                        <div class="fun-star big earned">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="intro-stars-text">Score high to earn stars!</p>
+                </div>
+
+                <button class="fun-btn primary" id="intro-start-btn">
+                    <span>LET'S GO!</span>
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Level Select Modal -->
     <div id="level-select-modal" class="level-select-modal hidden" role="dialog" aria-modal="true">
-        <div class="level-select-content">
-            <div class="level-select-header">
-                <h2>Select Level</h2>
-                <div class="total-stars">
-                    <span class="star earned">★</span>
-                    <span id="total-stars-count">0</span>
-                    <span class="stars-label">/ 9</span>
+        <div class="level-select-content fun-modal">
+            <!-- Fun banner header -->
+            <div class="fun-modal-banner purple">
+                <span>SELECT LEVEL</span>
+            </div>
+
+            <!-- Close button -->
+            <button class="fun-modal-close" id="level-select-close" aria-label="Close">
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </button>
+
+            <!-- Total stars display -->
+            <div class="level-select-stars-bar">
+                <div class="fun-star small earned">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
                 </div>
+                <span class="stars-count"><span id="total-stars-count">0</span> / 9</span>
             </div>
 
             <div class="level-grid" id="level-grid">
                 <!-- Populated by JS -->
             </div>
-
-            <button class="level-select-close" id="level-select-close">
-                <span>CLOSE</span>
-            </button>
         </div>
     </div>
 
@@ -446,30 +486,30 @@
     </div>
 
     <!-- Load scripts in order -->
-    <script src="js/config.js?v=26"></script>
-    <script src="js/utils.js?v=26"></script>
-    <script src="js/utils/AudioHelper.js?v=26"></script>
-    <script src="js/core/ThemeManager.js?v=26"></script>
-    <script src="js/physics/Vector.js?v=26"></script>
-    <script src="js/physics/Collision.js?v=26"></script>
-    <script src="js/entities/Ball.js?v=26"></script>
-    <script src="js/entities/Peg.js?v=26"></script>
-    <script src="js/entities/Slot.js?v=26"></script>
-    <script src="js/entities/GoalMouth.js?v=26"></script>
-    <script src="js/entities/FeverSlots.js?v=26"></script>
-    <script src="js/entities/Magazine.js?v=26"></script>
-    <script src="js/layouts/Layout.js?v=26"></script>
-    <script src="js/layouts/Layouts.js?v=26"></script>
-    <script src="js/levels/LevelData.js?v=26"></script>
-    <script src="js/trails/TrailSystem.js?v=26"></script>
-    <script src="js/entities/Board.js?v=26"></script>
-    <script src="js/core/Renderer.js?v=26"></script>
-    <script src="js/core/InputHandler.js?v=26"></script>
-    <script src="js/core/Game.js?v=26"></script>
-    <script src="js/sound.js?v=26"></script>
-    <script src="js/admin.js?v=26"></script>
-    <script src="js/particles.js?v=26"></script>
-    <script src="js/editor/LevelEditor.js?v=26"></script>
-    <script src="js/main.js?v=26"></script>
+    <script src="js/config.js?v=27"></script>
+    <script src="js/utils.js?v=27"></script>
+    <script src="js/utils/AudioHelper.js?v=27"></script>
+    <script src="js/core/ThemeManager.js?v=27"></script>
+    <script src="js/physics/Vector.js?v=27"></script>
+    <script src="js/physics/Collision.js?v=27"></script>
+    <script src="js/entities/Ball.js?v=27"></script>
+    <script src="js/entities/Peg.js?v=27"></script>
+    <script src="js/entities/Slot.js?v=27"></script>
+    <script src="js/entities/GoalMouth.js?v=27"></script>
+    <script src="js/entities/FeverSlots.js?v=27"></script>
+    <script src="js/entities/Magazine.js?v=27"></script>
+    <script src="js/layouts/Layout.js?v=27"></script>
+    <script src="js/layouts/Layouts.js?v=27"></script>
+    <script src="js/levels/LevelData.js?v=27"></script>
+    <script src="js/trails/TrailSystem.js?v=27"></script>
+    <script src="js/entities/Board.js?v=27"></script>
+    <script src="js/core/Renderer.js?v=27"></script>
+    <script src="js/core/InputHandler.js?v=27"></script>
+    <script src="js/core/Game.js?v=27"></script>
+    <script src="js/sound.js?v=27"></script>
+    <script src="js/admin.js?v=27"></script>
+    <script src="js/particles.js?v=27"></script>
+    <script src="js/editor/LevelEditor.js?v=27"></script>
+    <script src="js/main.js?v=27"></script>
 </body>
 </html>

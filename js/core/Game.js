@@ -1823,6 +1823,9 @@ class Game {
 
         const levelIds = window.getAllLevelIds ? window.getAllLevelIds() : ['level_1', 'level_2', 'level_3'];
 
+        // SVG star path for fun stars
+        const starSvg = `<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+
         levelIds.forEach((levelId, idx) => {
             const levelData = window.getLevelData ? window.getLevelData(idx) : null;
             const isUnlocked = window.LEVEL_PROGRESS ? window.LEVEL_PROGRESS.isUnlocked(levelId) : idx === 0;
@@ -1843,7 +1846,7 @@ class Game {
                     <div class="level-card-name">${name}</div>
                     <div class="level-card-subtitle">${subtitle}</div>
                     <div class="level-card-stars">
-                        ${[1, 2, 3].map(s => `<span class="star ${s <= starsEarned ? 'earned' : ''}">★</span>`).join('')}
+                        ${[1, 2, 3].map(s => `<div class="fun-star small ${s <= starsEarned ? 'earned' : ''}">${starSvg}</div>`).join('')}
                     </div>
                 </div>
             `;

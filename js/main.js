@@ -262,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const introModal = document.getElementById('intro-modal');
     const introStartBtn = document.getElementById('intro-start-btn');
+    const introCloseBtn = document.getElementById('intro-close-btn');
     const hasSeenIntro = localStorage.getItem('plinko_seen_intro');
 
     // Show intro on first visit
@@ -269,19 +270,26 @@ document.addEventListener('DOMContentLoaded', () => {
         introModal.classList.remove('hidden');
     }
 
+    // Helper to dismiss intro and show level select
+    const dismissIntro = () => {
+        // Mark as seen
+        localStorage.setItem('plinko_seen_intro', 'true');
+
+        // Hide intro
+        introModal.classList.add('hidden');
+
+        // Show the level select modal instead of starting directly
+        if (window.game) {
+            window.game.showLevelSelect();
+        }
+    };
+
     if (introStartBtn) {
-        introStartBtn.onclick = () => {
-            // Mark as seen
-            localStorage.setItem('plinko_seen_intro', 'true');
+        introStartBtn.onclick = dismissIntro;
+    }
 
-            // Hide intro
-            introModal.classList.add('hidden');
-
-            // Show the level select modal instead of starting directly
-            if (window.game) {
-                window.game.showLevelSelect();
-            }
-        };
+    if (introCloseBtn) {
+        introCloseBtn.onclick = dismissIntro;
     }
 
     // =============================================
