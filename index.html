@@ -381,9 +381,7 @@
     <!-- Level Editor Panel -->
     <div id="editor-panel" class="hidden">
         <div class="editor-header">
-            <button id="editor-close" class="editor-btn">Exit Editor</button>
             <span class="editor-title">LEVEL EDITOR</span>
-            <button id="editor-test" class="editor-btn primary">Test Play</button>
         </div>
 
         <div class="editor-body">
@@ -496,6 +494,43 @@
             <div class="editor-coords-display">
                 <span id="editor-coords">(0, 0)</span>
             </div>
+        </div>
+
+        <!-- Footer with Test/Exit buttons -->
+        <div class="editor-footer">
+            <button id="editor-test" class="editor-btn primary">Test Play</button>
+            <button id="editor-close" class="editor-btn">Exit Editor</button>
+        </div>
+    </div>
+
+    <!-- Power-up Selector Popup (for green pegs in editor) -->
+    <div id="powerup-selector" class="powerup-selector hidden">
+        <div class="powerup-selector-title">Select Power-Up</div>
+        <div class="powerup-options">
+            <button class="powerup-option" data-powerup="multiball">
+                <span class="powerup-icon">⚪⚪</span>
+                <span class="powerup-name">Multiball</span>
+            </button>
+            <button class="powerup-option" data-powerup="firework">
+                <span class="powerup-icon">🎆</span>
+                <span class="powerup-name">Firework</span>
+            </button>
+            <button class="powerup-option" data-powerup="blackhole">
+                <span class="powerup-icon">🌀</span>
+                <span class="powerup-name">Black Hole</span>
+            </button>
+            <button class="powerup-option" data-powerup="fireball">
+                <span class="powerup-icon">🔥</span>
+                <span class="powerup-name">Fireball</span>
+            </button>
+            <button class="powerup-option" data-powerup="lightning">
+                <span class="powerup-icon">⚡</span>
+                <span class="powerup-name">Lightning</span>
+            </button>
+            <button class="powerup-option" data-powerup="spooky">
+                <span class="powerup-icon">👻</span>
+                <span class="powerup-name">Spooky Ball</span>
+            </button>
         </div>
     </div>
 

@@ -12,6 +12,24 @@ class LevelEditor {
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
 
+        // Eraser brush settings
+        this.eraserRadius = 40;  // Radius of eraser brush in game units
+        this.isErasing = false;  // Currently in eraser drag mode
+        this.pegsToErase = new Set();  // Indices of pegs marked for erasure
+        this.mousePos = { x: 0, y: 0 };  // Current mouse position for brush preview
+
+        // Power-up selector for green pegs
+        this.powerUpSelector = null;  // DOM element
+        this.selectedGreenPegIndex = null;  // Index of green peg being configured
+        this.availablePowerUps = [
+            { id: 'multiball', name: 'Multiball', icon: '⚪⚪' },
+            { id: 'firework', name: 'Firework', icon: '🎆' },
+            { id: 'blackhole', name: 'Black Hole', icon: '🌀' },
+            { id: 'fireball', name: 'Fireball', icon: '🔥' },
+            { id: 'lightning', name: 'Lightning', icon: '⚡' },
+            { id: 'spooky', name: 'Spooky Ball', icon: '👻' }
+        ];
+
         // Grid settings
         this.gridSize = 15;
         this.showGrid = true;
@@ -62,15 +80,19 @@ class LevelEditor {
         // Pause the game
         this.game.pause();
 
-        // Copy current pegs to editor
+        // Copy current pegs to editor (including power-up assignments)
         this.pegs = this.game.pegs.map(p => ({
             x: p.x,
             y: p.y,
-            type: p.pegType || 'blue'
+            type: p.pegType || 'blue',
+            powerUp: p.assignedPowerUp || null
         }));
 
         // Show editor UI
         this._showEditorUI();
+
+        // Setup power-up selector
+        this._setupPowerUpSelector();
 
         // Attach event listeners
         const canvas = this.game.renderer.canvas;
@@ -185,7 +207,8 @@ class LevelEditor {
             this.pegs.push({
                 x: snapped.x,
                 y: snapped.y,
-                type: type
+                type: type,
+                powerUp: null  // Will be set for green pegs via selector
             });
             this._updatePegCounts();
             return true;
@@ -538,15 +561,48 @@ class LevelEditor {
                     x: pos.x - hit.peg.x,
                     y: pos.y - hit.peg.y
                 };
-            } else if (this.currentTool === 'erase' && hit) {
-                // Erase peg
-                this.removePeg(hit.index);
+            } else if (this.currentTool === 'erase') {
+                // Start eraser brush mode
+                this.isErasing = true;
+                this.pegsToErase.clear();
+                this.mousePos = { x: pos.x, y: pos.y };
+                // Collect any pegs under brush at start position
+                this._collectPegsUnderBrush(pos.x, pos.y);
             } else if (hit) {
-                // Cycle peg type
-                this.cyclePegType(hit.index);
+                // If clicking on a green peg, show power-up selector
+                if (hit.peg.type === 'green') {
+                    this._showPowerUpSelector(hit.index, e);
+                } else {
+                    // Cycle peg type for non-green pegs
+                    this.cyclePegType(hit.index);
+                }
             } else {
                 // Place new peg
-                this.addPeg(pos.x, pos.y, this.currentTool === 'erase' ? 'blue' : this.currentTool);
+                const newPegType = this.currentTool;
+                if (this.addPeg(pos.x, pos.y, newPegType)) {
+                    // If placing a green peg, show power-up selector
+                    if (newPegType === 'green') {
+                        const newIndex = this.pegs.length - 1;
+                        this._showPowerUpSelector(newIndex, e);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Collect all pegs within the eraser brush radius
+     */
+    _collectPegsUnderBrush(x, y) {
+        for (let i = 0; i < this.pegs.length; i++) {
+            const peg = this.pegs[i];
+            const dx = peg.x - x;
+            const dy = peg.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // If peg center is within brush radius, mark for erasure
+            if (dist <= this.eraserRadius + this.pegRadius) {
+                this.pegsToErase.add(i);
             }
         }
     }
@@ -555,6 +611,9 @@ class LevelEditor {
         if (!this.active || this.testMode) return;
 
         const pos = this.game.renderer.getEventPosition(e);
+
+        // Always track mouse position for eraser brush preview
+        this.mousePos = { x: pos.x, y: pos.y };
 
         if (this.isDragging && this.selectedPeg !== null) {
             const newX = pos.x - this.dragOffset.x;
@@ -565,6 +624,11 @@ class LevelEditor {
                 this.pegs[this.selectedPeg].x = snapped.x;
                 this.pegs[this.selectedPeg].y = snapped.y;
             }
+        }
+
+        // Collect pegs while eraser brush is active
+        if (this.isErasing) {
+            this._collectPegsUnderBrush(pos.x, pos.y);
         }
 
         // Update cursor position display
@@ -578,6 +642,21 @@ class LevelEditor {
     _onMouseUp(e) {
         if (!this.active || this.testMode) return;
 
+        // If erasing, remove all collected pegs
+        if (this.isErasing && this.pegsToErase.size > 0) {
+            // Sort indices in descending order to remove from end first
+            // (so indices don't shift during removal)
+            const indicesToRemove = Array.from(this.pegsToErase).sort((a, b) => b - a);
+            for (const index of indicesToRemove) {
+                if (index >= 0 && index < this.pegs.length) {
+                    this.pegs.splice(index, 1);
+                }
+            }
+            this._updatePegCounts();
+        }
+
+        this.isErasing = false;
+        this.pegsToErase.clear();
         this.isDragging = false;
         this.selectedPeg = null;
     }
@@ -640,6 +719,117 @@ class LevelEditor {
     }
 
     // =============================================
+    // Power-Up Selector
+    // =============================================
+
+    /**
+     * Setup power-up selector event handlers
+     */
+    _setupPowerUpSelector() {
+        this.powerUpSelector = document.getElementById('powerup-selector');
+        if (!this.powerUpSelector) return;
+
+        // Click handlers for power-up options
+        const options = this.powerUpSelector.querySelectorAll('.powerup-option');
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                const powerUpId = option.dataset.powerup;
+                this._selectPowerUp(powerUpId);
+            });
+        });
+
+        // Close selector when clicking outside
+        document.addEventListener('click', (e) => {
+            if (this.powerUpSelector &&
+                !this.powerUpSelector.contains(e.target) &&
+                !this.powerUpSelector.classList.contains('hidden')) {
+                // Small delay to avoid closing immediately on the click that opened it
+                setTimeout(() => this._hidePowerUpSelector(), 10);
+            }
+        });
+    }
+
+    /**
+     * Show power-up selector near a green peg
+     */
+    _showPowerUpSelector(pegIndex, event) {
+        if (!this.powerUpSelector) return;
+
+        this.selectedGreenPegIndex = pegIndex;
+        const peg = this.pegs[pegIndex];
+
+        // Update selected state in options
+        const options = this.powerUpSelector.querySelectorAll('.powerup-option');
+        options.forEach(option => {
+            const isSelected = option.dataset.powerup === peg.powerUp;
+            option.classList.toggle('selected', isSelected);
+        });
+
+        // Position near the click, but keep on screen
+        const rect = this.game.renderer.canvas.getBoundingClientRect();
+        const scale = this.game.renderer.scale;
+        let x = rect.left + peg.x * scale + 30;
+        let y = rect.top + peg.y * scale - 50;
+
+        // Keep on screen
+        const selectorWidth = 180;
+        const selectorHeight = 280;
+        if (x + selectorWidth > window.innerWidth) {
+            x = rect.left + peg.x * scale - selectorWidth - 30;
+        }
+        if (y + selectorHeight > window.innerHeight) {
+            y = window.innerHeight - selectorHeight - 10;
+        }
+        if (y < 10) y = 10;
+
+        this.powerUpSelector.style.left = `${x}px`;
+        this.powerUpSelector.style.top = `${y}px`;
+        this.powerUpSelector.classList.remove('hidden');
+
+        // Prevent the click from immediately closing
+        event.stopPropagation();
+    }
+
+    /**
+     * Hide power-up selector
+     */
+    _hidePowerUpSelector() {
+        if (this.powerUpSelector) {
+            this.powerUpSelector.classList.add('hidden');
+        }
+        this.selectedGreenPegIndex = null;
+    }
+
+    /**
+     * Select a power-up for the current green peg
+     */
+    _selectPowerUp(powerUpId) {
+        if (this.selectedGreenPegIndex === null) return;
+
+        const peg = this.pegs[this.selectedGreenPegIndex];
+        if (peg && peg.type === 'green') {
+            peg.powerUp = powerUpId;
+        }
+
+        this._hidePowerUpSelector();
+    }
+
+    /**
+     * Get the icon for a power-up
+     */
+    _getPowerUpIcon(powerUpId) {
+        const icons = {
+            'multiball': '⊕',
+            'firework': '✦',
+            'blackhole': '◉',
+            'fireball': '🔥',
+            'lightning': '⚡',
+            'spooky': '👻'
+        };
+        return icons[powerUpId] || '?';
+    }
+
+    // =============================================
     // UI Management
     // =============================================
 
@@ -659,6 +849,8 @@ class LevelEditor {
         if (panel) {
             panel.classList.add('hidden');
         }
+        // Also hide power-up selector
+        this._hidePowerUpSelector();
     }
 
     _setTool(tool) {
@@ -745,6 +937,9 @@ class LevelEditor {
         // Draw pegs
         this._renderPegs(ctx, scale);
 
+        // Draw eraser brush (on top of pegs)
+        this._renderEraserBrush(ctx, scale);
+
         // Draw goal mouth
         if (this.game.goalMouth) {
             this.game.goalMouth.render(ctx, scale);
@@ -803,11 +998,17 @@ class LevelEditor {
             const y = peg.y * scale;
             const r = this.pegRadius * scale;
 
+            // Check if this peg is marked for erasure
+            const markedForErase = this.pegsToErase.has(i);
+
             ctx.beginPath();
             ctx.arc(x, y, r, 0, Math.PI * 2);
 
-            // Color by type
-            if (peg.type === 'orange') {
+            // Color by type (dimmed if marked for erasure)
+            if (markedForErase) {
+                ctx.fillStyle = 'rgba(255, 80, 80, 0.6)';
+                ctx.strokeStyle = '#FF3333';
+            } else if (peg.type === 'orange') {
                 ctx.fillStyle = '#FF6B00';
                 ctx.strokeStyle = '#FF8C00';
             } else if (peg.type === 'green') {
@@ -819,7 +1020,7 @@ class LevelEditor {
             }
 
             ctx.fill();
-            ctx.lineWidth = 1.5 * scale;
+            ctx.lineWidth = markedForErase ? 2.5 * scale : 1.5 * scale;
             ctx.stroke();
             ctx.shadowBlur = 0;
 
@@ -829,7 +1030,85 @@ class LevelEditor {
                 ctx.lineWidth = 3 * scale;
                 ctx.stroke();
             }
+
+            // X mark on pegs marked for erasure
+            if (markedForErase) {
+                ctx.strokeStyle = '#FF3333';
+                ctx.lineWidth = 2 * scale;
+                const xSize = r * 0.6;
+                ctx.beginPath();
+                ctx.moveTo(x - xSize, y - xSize);
+                ctx.lineTo(x + xSize, y + xSize);
+                ctx.moveTo(x + xSize, y - xSize);
+                ctx.lineTo(x - xSize, y + xSize);
+                ctx.stroke();
+            }
+
+            // Power-up icon for green pegs
+            if (peg.type === 'green' && peg.powerUp && !markedForErase) {
+                const icon = this._getPowerUpIcon(peg.powerUp);
+                if (icon) {
+                    ctx.font = `${Math.round(r * 1.1)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                    ctx.shadowBlur = 3 * scale;
+                    ctx.fillText(icon, x, y);
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            // Question mark for green pegs without power-up
+            if (peg.type === 'green' && !peg.powerUp && !markedForErase) {
+                ctx.font = `bold ${Math.round(r * 1.2)}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.fillText('?', x, y);
+            }
         }
+    }
+
+    /**
+     * Render the eraser brush circle
+     */
+    _renderEraserBrush(ctx, scale) {
+        if (this.currentTool !== 'erase') return;
+
+        const x = this.mousePos.x * scale;
+        const y = this.mousePos.y * scale;
+        const r = this.eraserRadius * scale;
+
+        ctx.save();
+
+        // Outer circle (brush area)
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = this.isErasing ? 'rgba(255, 80, 80, 0.8)' : 'rgba(255, 100, 100, 0.5)';
+        ctx.lineWidth = 2 * scale;
+        ctx.setLineDash([8 * scale, 4 * scale]);
+        ctx.stroke();
+
+        // Fill when actively erasing
+        if (this.isErasing) {
+            ctx.fillStyle = 'rgba(255, 80, 80, 0.15)';
+            ctx.fill();
+        }
+
+        // Center crosshair
+        ctx.setLineDash([]);
+        ctx.strokeStyle = this.isErasing ? 'rgba(255, 80, 80, 0.8)' : 'rgba(255, 100, 100, 0.4)';
+        ctx.lineWidth = 1 * scale;
+        const crossSize = 8 * scale;
+        ctx.beginPath();
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+
+        ctx.restore();
     }
 
     // =============================================
@@ -871,7 +1150,14 @@ class LevelEditor {
 
     _applyPegsToGame() {
         // Convert editor pegs to game Peg objects
-        this.game.pegs = this.pegs.map(p => new Peg(p.x, p.y, this.pegRadius, false, p.type));
+        this.game.pegs = this.pegs.map(p => {
+            const gamePeg = new Peg(p.x, p.y, this.pegRadius, false, p.type);
+            // Transfer power-up assignment for green pegs
+            if (p.type === 'green' && p.powerUp) {
+                gamePeg.assignedPowerUp = p.powerUp;
+            }
+            return gamePeg;
+        });
 
         // Assign orange pegs (they're already marked)
         // No need to call assignOrangePegs since we placed them manually
