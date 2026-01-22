@@ -311,6 +311,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (levelSelectClose) {
         levelSelectClose.onclick = () => {
             levelSelectModal.classList.add('hidden');
+            // Start level 1 (or current level) when closing without selecting
+            if (window.game) {
+                window.game.resetMatch();
+                window.game.startMagazineAnimation();
+            }
         };
     }
 
