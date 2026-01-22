@@ -263,17 +263,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const introModal = document.getElementById('intro-modal');
     const introStartBtn = document.getElementById('intro-start-btn');
     const introCloseBtn = document.getElementById('intro-close-btn');
-    const hasSeenIntro = localStorage.getItem('plinko_seen_intro');
+    // const hasSeenIntro = localStorage.getItem('plinko_seen_intro'); // Disabled for testing
 
-    // Show intro on first visit
-    if (introModal && !hasSeenIntro) {
+    // Always show intro during testing
+    if (introModal) {
         introModal.classList.remove('hidden');
     }
 
     // Helper to dismiss intro and show level select
     const dismissIntro = () => {
-        // Mark as seen
-        localStorage.setItem('plinko_seen_intro', 'true');
+        // localStorage.setItem('plinko_seen_intro', 'true'); // Disabled for testing
 
         // Hide intro
         introModal.classList.add('hidden');
@@ -327,19 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const okBtn = document.getElementById('round-modal-ok');
     const retryBtn = document.getElementById('round-modal-retry');
 
-    // If user has seen intro, show level select on first load
-    // Otherwise, intro modal will show first
+    // Always show intro first during testing, keep match modal hidden
     if (modal && okBtn) {
-        if (hasSeenIntro) {
-            // Don't show match modal, show level select instead
-            modal.classList.add('hidden');
-            if (window.game) {
-                window.game.showLevelSelect();
-            }
-        } else {
-            // Intro will be shown, keep match modal hidden until after intro
-            modal.classList.add('hidden');
-        }
+        modal.classList.add('hidden');
 
         // Play/Next button handler
         okBtn.onclick = () => {
