@@ -778,6 +778,37 @@ class Renderer {
                 continue;
             }
 
+            // Power Ball conversion effect - green burst
+            if (p.isPowerBallConversion) {
+                if (age > 500) continue;
+                const progress = age / 500;
+                ctx.save();
+                ctx.globalAlpha = 1 - progress;
+
+                // Green expanding ring
+                const ringRadius = progress * 40 * scale;
+                ctx.strokeStyle = '#00FF55';
+                ctx.lineWidth = (4 - progress * 3) * scale;
+                ctx.shadowColor = '#00FF55';
+                ctx.shadowBlur = 15 * scale;
+                ctx.beginPath();
+                ctx.arc(p.x * scale, p.y * scale, ringRadius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // "POWER!" text floating up
+                const floatY = p.y - progress * 30;
+                ctx.font = `bold ${14 * scale}px system-ui`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#00FF55';
+                ctx.strokeStyle = '#005500';
+                ctx.lineWidth = 3 * scale;
+                ctx.strokeText('POWER!', p.x * scale, floatY * scale);
+                ctx.fillText('POWER!', p.x * scale, floatY * scale);
+
+                ctx.restore();
+                continue;
+            }
+
             // Free Ball popup
             if (p.isFreeBall) {
                 const duration = 1200;
