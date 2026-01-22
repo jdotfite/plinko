@@ -56,7 +56,7 @@ class Game {
         this.powerUpPending = false;      // Power-up ready to trigger next shot
 
         // Power-up settings (which ones are enabled)
-        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'powerball', 'lightning', 'ghost', 'magnet', 'bomb', 'splitter', 'firework', 'antigravity', 'bouncy', 'blackhole'];
+        this.enabledPowerUps = ['multiball', 'fireball', 'spooky', 'powerball', 'lightning', 'magnet', 'bomb', 'splitter', 'firework', 'antigravity', 'bouncy', 'blackhole'];
 
         // Black holes active in the game
         this.blackHoles = [];
