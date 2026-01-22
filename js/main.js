@@ -256,14 +256,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Match modal wiring
+    // =============================================
+    // INTRO MODAL (First-time Tutorial)
+    // =============================================
+
+    const introModal = document.getElementById('intro-modal');
+    const introStartBtn = document.getElementById('intro-start-btn');
+    const hasSeenIntro = localStorage.getItem('plinko_seen_intro');
+
+    // Show intro on first visit
+    if (introModal && !hasSeenIntro) {
+        introModal.classList.remove('hidden');
+    }
+
+    if (introStartBtn) {
+        introStartBtn.onclick = () => {
+            // Mark as seen
+            localStorage.setItem('plinko_seen_intro', 'true');
+
+            // Hide intro
+            introModal.classList.add('hidden');
+
+            // Show the level select modal instead of starting directly
+            if (window.game) {
+                window.game.showLevelSelect();
+            }
+        };
+    }
+
+    // =============================================
+    // LEVEL SELECT MODAL
+    // =============================================
+
+    const levelSelectModal = document.getElementById('level-select-modal');
+    const levelSelectClose = document.getElementById('level-select-close');
+
+    // Update total stars in level select header
+    window.updateTotalStars = function() {
+        const totalStarsEl = document.getElementById('total-stars-count');
+        if (totalStarsEl && window.LEVEL_PROGRESS) {
+            const total = window.LEVEL_PROGRESS.getTotalStars();
+            totalStarsEl.textContent = total;
+        }
+    };
+
+    if (levelSelectClose) {
+        levelSelectClose.onclick = () => {
+            levelSelectModal.classList.add('hidden');
+        };
+    }
+
+    // =============================================
+    // MATCH MODAL WIRING
+    // =============================================
+
     const modal = document.getElementById('round-modal');
     const okBtn = document.getElementById('round-modal-ok');
     const retryBtn = document.getElementById('round-modal-retry');
+
+    // If user has seen intro, show level select on first load
+    // Otherwise, intro modal will show first
     if (modal && okBtn) {
-        // Update modal content for initial display
-        window.updateModalContent(1, 'Ready to Play!');
-        modal.classList.remove('hidden');
+        if (hasSeenIntro) {
+            // Don't show match modal, show level select instead
+            modal.classList.add('hidden');
+            if (window.game) {
+                window.game.showLevelSelect();
+            }
+        } else {
+            // Intro will be shown, keep match modal hidden until after intro
+            modal.classList.add('hidden');
+        }
 
         // Play/Next button handler
         okBtn.onclick = () => {

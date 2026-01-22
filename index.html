@@ -239,6 +239,82 @@
         </div>
     </div>
 
+    <!-- Intro Modal - First time game explanation -->
+    <div id="intro-modal" class="intro-modal hidden" role="dialog" aria-modal="true">
+        <div class="intro-modal-content">
+            <div class="intro-header">
+                <h1>Welcome to Plinko!</h1>
+                <p class="intro-subtitle">Clear all orange pegs to win</p>
+            </div>
+
+            <div class="intro-rules">
+                <div class="rule-item">
+                    <div class="rule-icon orange-peg-icon"></div>
+                    <div class="rule-text">
+                        <strong>Orange Pegs</strong>
+                        <span>Hit all orange pegs to complete the level</span>
+                    </div>
+                </div>
+                <div class="rule-item">
+                    <div class="rule-icon blue-peg-icon"></div>
+                    <div class="rule-text">
+                        <strong>Blue Pegs</strong>
+                        <span>Worth 10 points each</span>
+                    </div>
+                </div>
+                <div class="rule-item">
+                    <div class="rule-icon green-peg-icon"></div>
+                    <div class="rule-text">
+                        <strong>Green Pegs</strong>
+                        <span>Trigger special power-ups!</span>
+                    </div>
+                </div>
+                <div class="rule-item">
+                    <div class="rule-icon goal-icon">🎯</div>
+                    <div class="rule-text">
+                        <strong>Free Ball</strong>
+                        <span>Land in the moving bucket for a free ball</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="intro-stars-info">
+                <div class="star-info-row">
+                    <span class="star earned">★</span>
+                    <span class="star earned">★</span>
+                    <span class="star earned">★</span>
+                </div>
+                <p>Earn stars by scoring high - hunt for 3 stars!</p>
+            </div>
+
+            <button class="intro-btn" id="intro-start-btn">
+                <span>LET'S PLAY!</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Select Modal -->
+    <div id="level-select-modal" class="level-select-modal hidden" role="dialog" aria-modal="true">
+        <div class="level-select-content">
+            <div class="level-select-header">
+                <h2>Select Level</h2>
+                <div class="total-stars">
+                    <span class="star earned">★</span>
+                    <span id="total-stars-count">0</span>
+                    <span class="stars-label">/ 9</span>
+                </div>
+            </div>
+
+            <div class="level-grid" id="level-grid">
+                <!-- Populated by JS -->
+            </div>
+
+            <button class="level-select-close" id="level-select-close">
+                <span>CLOSE</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Confetti container -->
     <div id="confetti-container" aria-hidden="true"></div>
 
@@ -370,30 +446,30 @@
     </div>
 
     <!-- Load scripts in order -->
-    <script src="js/config.js?v=25"></script>
-    <script src="js/utils.js?v=25"></script>
-    <script src="js/utils/AudioHelper.js?v=25"></script>
-    <script src="js/core/ThemeManager.js?v=25"></script>
-    <script src="js/physics/Vector.js?v=25"></script>
-    <script src="js/physics/Collision.js?v=25"></script>
-    <script src="js/entities/Ball.js?v=25"></script>
-    <script src="js/entities/Peg.js?v=25"></script>
-    <script src="js/entities/Slot.js?v=25"></script>
-    <script src="js/entities/GoalMouth.js?v=25"></script>
-    <script src="js/entities/FeverSlots.js?v=25"></script>
-    <script src="js/entities/Magazine.js?v=25"></script>
-    <script src="js/layouts/Layout.js?v=25"></script>
-    <script src="js/layouts/Layouts.js?v=25"></script>
-    <script src="js/levels/LevelData.js?v=25"></script>
-    <script src="js/trails/TrailSystem.js?v=25"></script>
-    <script src="js/entities/Board.js?v=25"></script>
-    <script src="js/core/Renderer.js?v=25"></script>
-    <script src="js/core/InputHandler.js?v=25"></script>
-    <script src="js/core/Game.js?v=25"></script>
-    <script src="js/sound.js?v=25"></script>
-    <script src="js/admin.js?v=25"></script>
-    <script src="js/particles.js?v=25"></script>
-    <script src="js/editor/LevelEditor.js?v=25"></script>
-    <script src="js/main.js?v=25"></script>
+    <script src="js/config.js?v=26"></script>
+    <script src="js/utils.js?v=26"></script>
+    <script src="js/utils/AudioHelper.js?v=26"></script>
+    <script src="js/core/ThemeManager.js?v=26"></script>
+    <script src="js/physics/Vector.js?v=26"></script>
+    <script src="js/physics/Collision.js?v=26"></script>
+    <script src="js/entities/Ball.js?v=26"></script>
+    <script src="js/entities/Peg.js?v=26"></script>
+    <script src="js/entities/Slot.js?v=26"></script>
+    <script src="js/entities/GoalMouth.js?v=26"></script>
+    <script src="js/entities/FeverSlots.js?v=26"></script>
+    <script src="js/entities/Magazine.js?v=26"></script>
+    <script src="js/layouts/Layout.js?v=26"></script>
+    <script src="js/layouts/Layouts.js?v=26"></script>
+    <script src="js/levels/LevelData.js?v=26"></script>
+    <script src="js/trails/TrailSystem.js?v=26"></script>
+    <script src="js/entities/Board.js?v=26"></script>
+    <script src="js/core/Renderer.js?v=26"></script>
+    <script src="js/core/InputHandler.js?v=26"></script>
+    <script src="js/core/Game.js?v=26"></script>
+    <script src="js/sound.js?v=26"></script>
+    <script src="js/admin.js?v=26"></script>
+    <script src="js/particles.js?v=26"></script>
+    <script src="js/editor/LevelEditor.js?v=26"></script>
+    <script src="js/main.js?v=26"></script>
 </body>
 </html>

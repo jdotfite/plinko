@@ -783,9 +783,13 @@ class Game {
         // Award points
         this.players[this.currentPlayerIndex].score += CONFIG.PEGGLE.greenPoints;
 
-        // Use level's fixed power-up if available, otherwise random
+        // Use peg's assigned power-up if available, otherwise fallback
         let powerUp;
-        if (this.currentLevelData && this.currentLevelData.powerUp) {
+        if (peg.assignedPowerUp) {
+            // This peg has a specific power-up assigned from level data
+            powerUp = peg.assignedPowerUp;
+        } else if (this.currentLevelData && this.currentLevelData.powerUp) {
+            // Fallback to level's default power-up (old format)
             powerUp = this.currentLevelData.powerUp;
         } else {
             // Fallback to random from enabled list
@@ -1692,6 +1696,20 @@ class Game {
 
         // Get star rating based on score
         const stars = this.getStarRating(score);
+        const levelId = this.currentLevelData ? this.currentLevelData.id : `level_${this.currentLevelIndex + 1}`;
+
+        // Save progress if level completed
+        if (orangeCleared && window.LEVEL_PROGRESS) {
+            // Save stars (only updates if better than previous)
+            window.LEVEL_PROGRESS.setStars(levelId, stars);
+
+            // Unlock next level
+            const levelCount = window.getLevelCount ? window.getLevelCount() : 3;
+            if (this.currentLevelIndex + 1 < levelCount) {
+                const nextLevelId = `level_${this.currentLevelIndex + 2}`;
+                window.LEVEL_PROGRESS.unlock(nextLevelId);
+            }
+        }
 
         // Determine result message
         let title;
@@ -1735,30 +1753,107 @@ class Game {
             }
         });
 
-        // Show/hide buttons based on result
+        // Show both buttons - RETRY always visible
+        if (retryBtn) {
+            retryBtn.classList.remove('hidden');
+        }
+
         if (orangeCleared) {
-            okBtn.querySelector('span').textContent = 'NEXT LEVEL';
-            if (retryBtn) retryBtn.classList.add('hidden');
+            okBtn.querySelector('span').textContent = 'LEVELS';
         } else {
-            okBtn.querySelector('span').textContent = 'RETRY';
-            if (retryBtn) retryBtn.classList.add('hidden');
+            okBtn.querySelector('span').textContent = 'LEVELS';
         }
 
         modal.classList.remove('hidden');
 
+        // Retry button - replay current level
+        if (retryBtn) {
+            retryBtn.onclick = () => {
+                modal.classList.add('hidden');
+                this.resetMatch();
+                this.startMagazineAnimation();
+            };
+        }
+
+        // Main button - show level select
         okBtn.onclick = () => {
             modal.classList.add('hidden');
-
-            if (orangeCleared) {
-                // Advance to next level
-                this.advanceLevel();
-            }
-            // Reset and restart (same level if failed, next if completed)
-            this.resetMatch();
-
-            // Start magazine loading animation after modal is dismissed
-            this.startMagazineAnimation();
+            this.showLevelSelect();
         };
+    }
+
+    /**
+     * Show the level select grid
+     */
+    showLevelSelect() {
+        const levelSelect = document.getElementById('level-select-modal');
+        if (!levelSelect) return;
+
+        // Populate the grid
+        this._populateLevelGrid();
+
+        // Update total stars display
+        if (typeof window.updateTotalStars === 'function') {
+            window.updateTotalStars();
+        }
+
+        levelSelect.classList.remove('hidden');
+    }
+
+    /**
+     * Hide level select and start a level
+     */
+    startLevel(levelIndex) {
+        const levelSelect = document.getElementById('level-select-modal');
+        if (levelSelect) levelSelect.classList.add('hidden');
+
+        this.currentLevelIndex = levelIndex;
+        this.resetMatch();
+        this.startMagazineAnimation();
+    }
+
+    /**
+     * Populate the level select grid
+     */
+    _populateLevelGrid() {
+        const grid = document.getElementById('level-grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+
+        const levelIds = window.getAllLevelIds ? window.getAllLevelIds() : ['level_1', 'level_2', 'level_3'];
+
+        levelIds.forEach((levelId, idx) => {
+            const levelData = window.getLevelData ? window.getLevelData(idx) : null;
+            const isUnlocked = window.LEVEL_PROGRESS ? window.LEVEL_PROGRESS.isUnlocked(levelId) : idx === 0;
+            const starsEarned = window.LEVEL_PROGRESS ? window.LEVEL_PROGRESS.getStars(levelId) : 0;
+
+            const card = document.createElement('div');
+            card.className = 'level-card' + (isUnlocked ? '' : ' locked');
+
+            const name = levelData ? levelData.name : `Level ${idx + 1}`;
+            const subtitle = levelData ? levelData.subtitle : '';
+
+            card.innerHTML = `
+                <div class="level-card-preview">
+                    <div class="level-number">${idx + 1}</div>
+                    ${!isUnlocked ? '<div class="lock-icon">🔒</div>' : ''}
+                </div>
+                <div class="level-card-info">
+                    <div class="level-card-name">${name}</div>
+                    <div class="level-card-subtitle">${subtitle}</div>
+                    <div class="level-card-stars">
+                        ${[1, 2, 3].map(s => `<span class="star ${s <= starsEarned ? 'earned' : ''}">★</span>`).join('')}
+                    </div>
+                </div>
+            `;
+
+            if (isUnlocked) {
+                card.onclick = () => this.startLevel(idx);
+            }
+
+            grid.appendChild(card);
+        });
     }
 
     resetMatch() {

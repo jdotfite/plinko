@@ -119,7 +119,7 @@ class Layout {
     /**
      * Apply level data with fixed peg positions
      * @param {Array} pegs - Array of Peg objects
-     * @param {Object} levelData - Level definition with orangePegIndices and greenPegIndices
+     * @param {Object} levelData - Level definition with orangePegIndices and greenPegs
      */
     static applyLevelData(pegs, levelData) {
         if (!pegs || !pegs.length || !levelData) return;
@@ -129,6 +129,7 @@ class Layout {
             peg.pegType = 'blue';
             peg.isHit = false;
             peg.hitTime = 0;
+            peg.assignedPowerUp = null;  // Clear any assigned power-up
         }
 
         // Assign orange pegs from fixed indices
@@ -140,8 +141,18 @@ class Layout {
             }
         }
 
-        // Assign green pegs from fixed indices
-        if (levelData.greenPegIndices) {
+        // Assign green pegs with their power-ups (new format)
+        if (levelData.greenPegs && Array.isArray(levelData.greenPegs)) {
+            for (const greenPeg of levelData.greenPegs) {
+                const idx = greenPeg.index;
+                if (idx >= 0 && idx < pegs.length && pegs[idx].pegType !== 'orange') {
+                    pegs[idx].pegType = 'green';
+                    pegs[idx].assignedPowerUp = greenPeg.powerUp || null;
+                }
+            }
+        }
+        // Fallback: old format with just indices (no specific power-up)
+        else if (levelData.greenPegIndices) {
             for (const idx of levelData.greenPegIndices) {
                 if (idx >= 0 && idx < pegs.length && pegs[idx].pegType !== 'orange') {
                     pegs[idx].pegType = 'green';
