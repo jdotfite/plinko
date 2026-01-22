@@ -11,8 +11,10 @@ class Magazine {
         this.total = 10;
         this.remaining = 10;
 
-        // Ball return animation (when ball goes into goal mouth)
-        this.returnBall = null;       // { y, targetY, startTime }
+        // Free ball animation queue and state
+        this.freeBallQueue = [];      // Queue of pending free ball animations
+        this.returnBall = null;       // Current animating ball { y, targetY, startTime, phase, fadeProgress }
+                                      // phase: 'rising', 'fading', 'complete'
 
         // Startup animation phases:
         // 1. 'dropping' - balls drop into magazine with clacking sounds
@@ -38,7 +40,9 @@ class Magazine {
         this.remaining = newRemaining;
 
         // Trigger cannon reload animation when a ball is used
-        if (decreased && this.initialized && this.remaining > 0) {
+        // But NOT if a free ball animation is in progress (it will trigger reload when done)
+        const freeBallAnimating = this.returnBall || this.freeBallQueue.length > 0;
+        if (decreased && this.initialized && this.remaining > 0 && !freeBallAnimating) {
             this.startReloadAnimation();
         }
     }
@@ -66,30 +70,73 @@ class Magazine {
     }
 
     /**
-     * Animate a ball returning from the bottom (free ball reward)
+     * Queue a free ball animation (ball returns from bottom)
+     * Multiple calls will queue up and play in sequence
      */
     returnBallAnimation() {
+        this.freeBallQueue.push({ queued: true });
+
+        // If no animation running, start the first one
+        if (!this.returnBall) {
+            this._startNextFreeBall();
+        }
+    }
+
+    /**
+     * Start animating the next free ball from the queue
+     */
+    _startNextFreeBall() {
+        if (this.freeBallQueue.length === 0) {
+            this.returnBall = null;
+            // All free balls are in - now trigger reload animation
+            if (this.initialized && this.remaining > 0) {
+                // Small delay before reload to let the last ball fully settle visually
+                setTimeout(() => {
+                    if (!this.returnBall && !this.reloadAnimation) {
+                        this.startReloadAnimation();
+                    }
+                }, 50);
+            }
+            return;
+        }
+
+        this.freeBallQueue.shift(); // Remove from queue
+
         const cfg = CONFIG.MAGAZINE;
-        // Target is one slot below current remaining (since remaining will be incremented)
-        const targetY = this.y + this.remaining * cfg.spacing;
+        // Target is the bottom slot position (slot index = remaining - 1)
+        // This is where the ball will appear before the reload animation shifts everything up
+        const targetSlot = Math.max(0, this.remaining - 1);
+        const targetY = this.y + targetSlot * cfg.spacing;
+
         this.returnBall = {
             y: this.y + this.total * cfg.spacing + 60, // Start below magazine
             targetY: targetY,
-            startTime: performance.now()
+            targetSlot: targetSlot,  // Track which slot we're targeting
+            startTime: performance.now(),
+            phase: 'rising',        // 'rising' -> 'fading' -> 'complete'
+            fadeProgress: 0,        // 0 = green, 1 = gray
+            settled: false          // Has the ball reached its slot?
         };
     }
 
     /**
-     * Called when ball return animation completes
+     * Called when current ball animation phase completes
      */
-    completeReturn() {
-        // Don't modify remaining - that's handled by setRemaining based on shotsTaken
+    _completeCurrentFreeBall() {
+        // Mark cannon as not ready so the bottom slot renders as a regular ball
+        // (prevents the ball from disappearing during transition to reload)
+        this.cannonReady = false;
+
         this.returnBall = null;
+
+        // Start next free ball if any in queue
+        this._startNextFreeBall();
     }
 
     reset() {
         this.remaining = this.total;
         this.returnBall = null;
+        this.freeBallQueue = [];
         this.loadingAnimation = null;
         this.reloadAnimation = null;
         this.ballOffsets = [];
@@ -237,24 +284,44 @@ class Magazine {
             }
         }
 
-        // Update return ball animation (ball rising from bottom)
+        // Update return ball animation (ball rising from bottom, then fading)
         if (this.returnBall) {
-            const elapsed = performance.now() - this.returnBall.startTime;
-            const duration = 500; // ms for full animation
-            const progress = Math.min(1, elapsed / duration);
+            const now = performance.now();
+            const elapsed = now - this.returnBall.startTime;
 
-            // Ease out back (slight overshoot for bounce effect)
-            const c1 = 1.70158;
-            const c3 = c1 + 1;
-            const eased = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+            if (this.returnBall.phase === 'rising') {
+                // Phase 1: Ball rises from bottom to slot position (green)
+                const riseDuration = 400; // ms
+                const progress = Math.min(1, elapsed / riseDuration);
 
-            // Interpolate from start to target
-            const startY = this.y + this.total * CONFIG.MAGAZINE.spacing + 60;
-            this.returnBall.y = startY + (this.returnBall.targetY - startY) * eased;
+                // Ease out back (slight overshoot for bounce effect)
+                const c1 = 1.70158;
+                const c3 = c1 + 1;
+                const eased = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
 
-            // Complete when done
-            if (progress >= 1) {
-                this.completeReturn();
+                // Interpolate from start to target
+                const startY = this.y + this.total * CONFIG.MAGAZINE.spacing + 60;
+                this.returnBall.y = startY + (this.returnBall.targetY - startY) * eased;
+
+                // Move to fading phase when rise completes
+                if (progress >= 1) {
+                    this.returnBall.phase = 'fading';
+                    this.returnBall.startTime = now;
+                    this.returnBall.settled = true;
+                    // Play clack sound when ball reaches its slot
+                    this._playClackSound(this.returnBall.targetSlot || this.remaining);
+                }
+            } else if (this.returnBall.phase === 'fading') {
+                // Phase 2: Ball fades from green to gray
+                const fadeDuration = 300; // ms
+                const progress = Math.min(1, elapsed / fadeDuration);
+
+                this.returnBall.fadeProgress = progress;
+
+                // Complete this ball's animation when fade finishes
+                if (progress >= 1) {
+                    this._completeCurrentFreeBall();
+                }
             }
         }
 
@@ -353,10 +420,14 @@ class Magazine {
             }
         }
 
-        // === RETURN BALL ANIMATION (rising from bottom) ===
+        // === RETURN BALL ANIMATION (rising from bottom, fading green to gray) ===
         if (this.returnBall) {
             const returnY = this.returnBall.y * scale;
-            this._renderBall(ctx, x, returnY, ballRadius, scale, true);
+            // Green amount: 1 while rising, fades to 0 during fading phase
+            const greenAmount = this.returnBall.phase === 'rising'
+                ? 1
+                : 1 - this.returnBall.fadeProgress;
+            this._renderBall(ctx, x, returnY, ballRadius, scale, greenAmount);
         }
 
         ctx.restore();
@@ -438,17 +509,47 @@ class Magazine {
 
     /**
      * Helper to render a single ball in the magazine
+     * @param {number} greenAmount - 0 = normal ball, 1 = fully green (for free ball animation)
      */
-    _renderBall(ctx, x, y, radius, scale, isReturning = false) {
+    _renderBall(ctx, x, y, radius, scale, greenAmount = 0) {
         // Shadow
         ctx.shadowColor = 'rgba(0,0,0,0.12)';
         ctx.shadowBlur = 6 * scale;
         ctx.shadowOffsetY = 4 * scale;
 
+        let borderColor, fillColor;
+
+        if (greenAmount > 0) {
+            // Parse normal ball colors from CONFIG and lerp to green
+            // Normal ball uses CONFIG.COLORS.ballBorder and ballFill
+            // Green ball: border #00AA22, fill #00DD44
+            const normalBorder = this._parseColor(CONFIG.COLORS.ballBorder);
+            const normalFill = this._parseColor(CONFIG.COLORS.ballFill);
+            const greenBorder = { r: 0, g: 170, b: 34 };       // #00AA22
+            const greenFill = { r: 0, g: 221, b: 68 };         // #00DD44
+
+            const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+
+            const borderR = lerp(normalBorder.r, greenBorder.r, greenAmount);
+            const borderG = lerp(normalBorder.g, greenBorder.g, greenAmount);
+            const borderB = lerp(normalBorder.b, greenBorder.b, greenAmount);
+
+            const fillR = lerp(normalFill.r, greenFill.r, greenAmount);
+            const fillG = lerp(normalFill.g, greenFill.g, greenAmount);
+            const fillB = lerp(normalFill.b, greenFill.b, greenAmount);
+
+            borderColor = `rgb(${borderR}, ${borderG}, ${borderB})`;
+            fillColor = `rgb(${fillR}, ${fillG}, ${fillB})`;
+        } else {
+            // Normal ball - use CONFIG colors directly
+            borderColor = CONFIG.COLORS.ballBorder;
+            fillColor = CONFIG.COLORS.ballFill;
+        }
+
         // Outer ring (border)
         ctx.beginPath();
         ctx.arc(x, y, radius + 2 * scale, 0, Math.PI * 2);
-        ctx.fillStyle = CONFIG.COLORS.ballBorder;
+        ctx.fillStyle = borderColor;
         ctx.fill();
 
         // Clear shadow for inner ball
@@ -457,19 +558,33 @@ class Magazine {
         // Inner ball
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = CONFIG.COLORS.ballFill;
+        ctx.fillStyle = fillColor;
         ctx.fill();
 
-        // Glow effect for returning ball
-        if (isReturning) {
-            ctx.shadowColor = '#00FF55';
-            ctx.shadowBlur = 15 * scale;
+        // Glow effect when ball is green
+        if (greenAmount > 0.1) {
+            ctx.shadowColor = `rgba(0, 255, 85, ${greenAmount * 0.6})`;
+            ctx.shadowBlur = 15 * scale * greenAmount;
             ctx.beginPath();
             ctx.arc(x, y, radius + 1 * scale, 0, Math.PI * 2);
-            ctx.strokeStyle = '#00FF55';
+            ctx.strokeStyle = `rgba(0, 255, 85, ${greenAmount * 0.8})`;
             ctx.lineWidth = 2 * scale;
             ctx.stroke();
             ctx.shadowColor = 'transparent';
         }
+    }
+
+    /**
+     * Parse a hex color string to RGB object
+     */
+    _parseColor(hex) {
+        // Handle shorthand hex (#FFF)
+        if (hex.length === 4) {
+            hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+        }
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return { r, g, b };
     }
 }

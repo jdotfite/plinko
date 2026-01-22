@@ -16,7 +16,7 @@ class Game {
         this.shotsTaken = [0, 0];
         this.matchOver = false;
         this.combo = 0;
-        this.freeBallEarned = false;
+        this.freeBallsEarned = 0;  // Count of free balls earned this shot
 
         // Level system
         this.currentLevelIndex = 0;
@@ -1512,8 +1512,8 @@ class Game {
             isFreeBall: true
         });
 
-        // Mark that we earned a free ball - _finishShot will NOT increment shotsTaken
-        this.freeBallEarned = true;
+        // Mark that we earned a free ball - _finishShot will adjust shotsTaken
+        this.freeBallsEarned += 1;
 
         AudioHelper.play('Kerplunk');
 
@@ -1607,11 +1607,20 @@ class Game {
         this.combo = 0;
         this.splitterBallCount = 0; // Reset splitter ball counter
 
-        // Only increment shotsTaken if we didn't earn a free ball
-        if (!this.freeBallEarned) {
+        // Adjust shotsTaken based on free balls earned
+        // 0 free balls = normal shot (+1 shotsTaken)
+        // 1 free ball = shot doesn't count (no change)
+        // 2+ free balls = gain extra balls (-N+1 shotsTaken)
+        if (this.freeBallsEarned === 0) {
             this.shotsTaken[this.currentPlayerIndex] += 1;
+        } else if (this.freeBallsEarned > 1) {
+            // Gained extra balls! Decrease shotsTaken (can't go below 0)
+            const extraBalls = this.freeBallsEarned - 1;
+            this.shotsTaken[this.currentPlayerIndex] = Math.max(0,
+                this.shotsTaken[this.currentPlayerIndex] - extraBalls);
         }
-        this.freeBallEarned = false; // Reset flag
+        // If freeBallsEarned === 1, shotsTaken stays the same (shot refunded)
+        this.freeBallsEarned = 0; // Reset counter
 
         // Update magazine for current player
         if (this.magazines[this.currentPlayerIndex]) {
@@ -2035,7 +2044,7 @@ class Game {
         this.shotsTaken = [0, 0];
         this.matchOver = false;
         this.combo = 0;
-        this.freeBallEarned = false;
+        this.freeBallsEarned = 0;
         this.slowMoUntil = 0;
         this.state = CONFIG.STATES.IDLE;
         this.balls = [];

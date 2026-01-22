@@ -439,7 +439,7 @@ class LevelEditor {
         game.shotsTaken = [0, 0];
         game.matchOver = false;
         game.combo = 0;
-        game.freeBallEarned = false;
+        game.freeBallsEarned = 0;
         game.slowMoUntil = 0;
         game.state = CONFIG.STATES.IDLE;
         game.balls = [];
