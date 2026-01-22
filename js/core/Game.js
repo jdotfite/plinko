@@ -399,6 +399,16 @@ class Game {
 
                         // Power Ball converts pegs to green power-up pegs
                         if (ball.isPowerBall && ball.powerBallConversions > 0 && peg.pegType !== 'green') {
+                            // If converting an orange peg, count it as cleared
+                            if (peg.pegType === 'orange') {
+                                this.orangePegsRemaining = Math.max(0, this.orangePegsRemaining - 1);
+
+                                // Check for win (all orange cleared)
+                                if (this.orangePegsRemaining === 0) {
+                                    this.triggerExtremeFever(peg);
+                                }
+                            }
+
                             // Convert the peg to green (will give random power-up when hit)
                             peg.pegType = 'green';
                             ball.powerBallConversions--;
