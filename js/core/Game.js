@@ -397,11 +397,10 @@ class Game {
                             }
                         }
 
-                        // Power Ball converts pegs to green (visual only - no power-up trigger)
+                        // Power Ball converts pegs to green power-up pegs
                         if (ball.isPowerBall && ball.powerBallConversions > 0 && peg.pegType !== 'green') {
-                            // Convert the peg to green (marked so it won't trigger power-ups)
+                            // Convert the peg to green (will give random power-up when hit)
                             peg.pegType = 'green';
-                            peg.isConverted = true;
                             ball.powerBallConversions--;
                             shouldHitPeg = false; // Don't remove the peg
 
@@ -761,13 +760,9 @@ class Game {
 
     /**
      * Handle green peg hit - awards a power-up
-     * (Converted pegs from Power Ball don't trigger power-ups)
      */
     _handleGreenPegHit(peg, ball) {
         if (!peg || peg.pegType !== 'green') return;
-
-        // Pegs converted by Power Ball don't trigger power-ups
-        if (peg.isConverted) return;
 
         // Award points
         this.players[this.currentPlayerIndex].score += CONFIG.PEGGLE.greenPoints;
@@ -799,10 +794,46 @@ class Game {
     }
 
     /**
+     * Clear all power-up effects from a ball (called when getting a new power-up)
+     */
+    _clearBallPowerUps(ball) {
+        if (!ball) return;
+
+        // Clear all power-up flags
+        ball.isFireball = false;
+        ball.isSpooky = false;
+        ball.spookyUsed = false;
+        ball.isPowerBall = false;
+        ball.powerBallConversions = 0;
+        ball.isLightning = false;
+        ball.lightningUntil = 0;
+        ball.isMagnet = false;
+        ball.magnetStrength = 0;
+        ball.isBomb = false;
+        ball.bombHitsRemaining = 0;
+        ball.isSplitter = false;
+        ball.isRainbow = false;
+        ball.canSplit = false;
+        ball.isFirework = false;
+        ball.fireworkUsed = false;
+        ball.fireworkPhase = null;
+        ball.isAntiGravity = false;
+        ball.antiGravityStartTime = 0;
+        ball.isBouncy = false;
+        ball.bouncyEnergy = 0;
+        ball.isBlackHoleMaster = false;
+        ball.isGhost = false;
+        ball.ghostHits = 0;
+    }
+
+    /**
      * Activate a power-up
      */
     _activatePowerUp(type, ball, peg) {
         this.currentPowerUp = type;
+
+        // Clear previous power-up effects before applying new one
+        this._clearBallPowerUps(ball);
 
         switch (type) {
             case 'multiball':
@@ -819,9 +850,6 @@ class Game {
                 break;
             case 'lightning':
                 this._powerUpLightning(ball, peg);
-                break;
-            case 'ghost':
-                this._powerUpGhost(ball);
                 break;
             case 'magnet':
                 this._powerUpMagnet(ball);
@@ -900,10 +928,17 @@ class Game {
     _powerUpLightning(ball, peg) {
         if (!peg) return;
 
+        // Brief slow-mo so player can see the lightning chain
+        this.slowMoUntil = performance.now() + 600;
+
+        // Screen shake for dramatic effect
+        this.triggerShake(8, 300);
+
         // Find nearby pegs and hit them with lightning
         const lightningRadius = 150;
         const maxChain = 5;
         let chainCount = 0;
+        const now = performance.now();
 
         for (const p of this.pegs) {
             if (p.isHit || chainCount >= maxChain) continue;
@@ -912,12 +947,12 @@ class Game {
             const dist = Math.hypot(dx, dy);
 
             if (dist > 0 && dist < lightningRadius) {
-                // Add lightning effect
+                // Add lightning bolt effect with staggered timing
                 this.scorePopups.push({
                     x: p.x, y: p.y,
                     isLightning: true,
                     fromX: peg.x, fromY: peg.y,
-                    birth: performance.now()
+                    birth: now + chainCount * 80  // Stagger the bolts
                 });
 
                 // Hit the peg
@@ -936,13 +971,6 @@ class Game {
     /**
      * Ghost - Phases through pegs (still scores but no bounce)
      */
-    _powerUpGhost(ball) {
-        if (!ball) return;
-        ball.isGhost = true;
-        ball.ghostHits = 0;
-        ball.maxGhostHits = 12; // Can phase through 12 pegs
-    }
-
     /**
      * Magnet - Ball curves toward nearest orange peg
      */
