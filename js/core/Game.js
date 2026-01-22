@@ -1807,12 +1807,23 @@ class Game {
     _animateBallBonus(ballsRemaining, bonusPerBall, startScore, scoreEl, ballsEl, starEls) {
         const bonusArea = document.getElementById('ball-bonus-area');
         const ballsDisplay = document.getElementById('bonus-balls-display');
-        const popupEl = document.getElementById('bonus-score-popup');
+        const bonusTotalEl = document.getElementById('bonus-total');
+        const bonusMultiplierEl = document.getElementById('bonus-multiplier');
 
         // Show bonus area and create ball elements
         if (bonusArea && ballsDisplay) {
             bonusArea.classList.remove('hidden');
             ballsDisplay.innerHTML = '';
+
+            // Set multiplier text
+            if (bonusMultiplierEl) {
+                bonusMultiplierEl.textContent = `× ${bonusPerBall.toLocaleString()}`;
+            }
+
+            // Initialize bonus total
+            if (bonusTotalEl) {
+                bonusTotalEl.textContent = '+0';
+            }
 
             // Create visual balls
             for (let i = 0; i < ballsRemaining; i++) {
@@ -1825,8 +1836,9 @@ class Game {
 
         let currentBallIndex = 0;
         let currentScore = startScore;
+        let bonusAccumulated = 0;
         const totalBalls = ballsRemaining;
-        const interval = 250; // ms between each ball count
+        const interval = 350; // ms between each ball count (slower for clarity)
 
         const countNext = () => {
             if (currentBallIndex >= totalBalls) {
@@ -1834,13 +1846,16 @@ class Game {
                 this.players[0].score = currentScore;
                 const finalStars = this.getStarRating(currentScore);
 
-                // Hide bonus area after a delay
+                // Brief pause then transition to stars
                 setTimeout(() => {
-                    if (bonusArea) bonusArea.classList.add('hidden');
-                }, 300);
+                    this._animateStars(starEls, finalStars, true);
+                    this._saveProgress(currentScore, true);
 
-                this._animateStars(starEls, finalStars, true);
-                this._saveProgress(currentScore, true);
+                    // Hide bonus area after stars start
+                    setTimeout(() => {
+                        if (bonusArea) bonusArea.classList.add('hidden');
+                    }, 500);
+                }, 400);
                 return;
             }
 
@@ -1854,28 +1869,24 @@ class Game {
 
             // Add bonus to score
             currentScore += bonusPerBall;
+            bonusAccumulated += bonusPerBall;
 
             // Update displays
             const remaining = totalBalls - currentBallIndex - 1;
             if (ballsEl) ballsEl.textContent = remaining;
             if (scoreEl) scoreEl.textContent = currentScore.toLocaleString();
 
+            // Update bonus total with pulse animation
+            if (bonusTotalEl) {
+                bonusTotalEl.textContent = `+${bonusAccumulated.toLocaleString()}`;
+                bonusTotalEl.classList.add('pulse');
+                setTimeout(() => bonusTotalEl.classList.remove('pulse'), 150);
+            }
+
             // Play sound with ascending pitch
             const pitchFactor = 0.9 + (currentBallIndex / totalBalls) * 0.4;
             if (window.audioManager && typeof window.audioManager.playBallBonus === 'function') {
                 window.audioManager.playBallBonus({ pitch: pitchFactor });
-            }
-
-            // Show score popup near the ball
-            if (popupEl && ballEl) {
-                const rect = ballEl.getBoundingClientRect();
-                const containerRect = ballsDisplay.getBoundingClientRect();
-                popupEl.textContent = `+${bonusPerBall.toLocaleString()}`;
-                popupEl.style.left = `${rect.left - containerRect.left + 12}px`;
-                popupEl.style.top = `${rect.top - containerRect.top - 10}px`;
-                popupEl.classList.remove('show');
-                void popupEl.offsetWidth; // Trigger reflow
-                popupEl.classList.add('show');
             }
 
             // Flash score for emphasis
@@ -1894,7 +1905,7 @@ class Game {
                     ballEl.classList.remove('counting');
                     ballEl.classList.add('counted');
                 }
-            }, 150);
+            }, 200);
 
             currentBallIndex++;
 

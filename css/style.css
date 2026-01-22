@@ -408,56 +408,99 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 
 /* Ball bonus animation area */
 .ball-bonus-area {
-    margin: 16px 0;
-    padding: 16px;
+    margin: 8px 0 16px;
+    padding: 16px 20px;
     background: linear-gradient(145deg, #F8F8F8, #EDEDED);
     border-radius: 16px;
     border: 2px solid #E0E0E0;
+    text-align: center;
 }
 
 .ball-bonus-area.hidden {
     display: none;
 }
 
+.ball-bonus-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+
 .ball-bonus-visual {
     position: relative;
-    min-height: 50px;
+    min-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-bottom: 12px;
 }
 
 .bonus-balls {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
 }
 
+/* Standard ball appearance - matches the shot ball */
 .bonus-ball {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #666, #333);
-    border: 2px solid #222;
+    background: linear-gradient(145deg, #C8C8C8, #A8A8A8);
+    border: 3px solid #FFFFFF;
     box-shadow:
-        0 2px 4px rgba(0,0,0,0.2),
-        inset 0 1px 2px rgba(255,255,255,0.1);
-    transition: all 0.2s ease;
+        0 2px 6px rgba(0,0,0,0.15),
+        inset 0 2px 4px rgba(255,255,255,0.4),
+        inset 0 -2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
 }
 
+/* Currently counting - highlight green */
 .bonus-ball.counting {
-    transform: scale(1.2);
-    background: linear-gradient(145deg, #00DD44, #00AA33);
-    border-color: #008822;
+    transform: scale(1.15);
+    background: linear-gradient(145deg, #44EE66, #00CC33);
+    border-color: #FFFFFF;
     box-shadow:
-        0 0 12px rgba(0,221,68,0.5),
-        0 2px 4px rgba(0,0,0,0.2);
+        0 0 16px rgba(0,221,68,0.6),
+        0 2px 6px rgba(0,0,0,0.15),
+        inset 0 2px 4px rgba(255,255,255,0.4);
 }
 
+/* Already counted - fade out */
 .bonus-ball.counted {
-    opacity: 0.3;
-    transform: scale(0.8);
+    opacity: 0.25;
+    transform: scale(0.85);
+    filter: grayscale(0.5);
+}
+
+/* Bonus score display */
+.ball-bonus-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.bonus-multiplier {
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+}
+
+.bonus-total {
+    font-size: 22px;
+    font-weight: 800;
+    color: #00CC33;
+    min-width: 80px;
+    transition: transform 0.15s ease;
+}
+
+.bonus-total.pulse {
+    transform: scale(1.15);
 }
 
 .bonus-score-popup {

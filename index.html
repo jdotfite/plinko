@@ -196,6 +196,18 @@
             <div class="modal-level" id="modal-level">Level 1</div>
             <div class="modal-title" id="round-modal-text">Ready to Play!</div>
 
+            <!-- Ball bonus animation area (shown on level complete) -->
+            <div class="ball-bonus-area hidden" id="ball-bonus-area">
+                <div class="ball-bonus-title">BALLS LEFT BONUS</div>
+                <div class="ball-bonus-visual">
+                    <div class="bonus-balls" id="bonus-balls-display"></div>
+                </div>
+                <div class="ball-bonus-score">
+                    <span class="bonus-multiplier" id="bonus-multiplier">× 1,000</span>
+                    <span class="bonus-total" id="bonus-total">+0</span>
+                </div>
+            </div>
+
             <!-- Stats row -->
             <div class="modal-stats">
                 <div class="stat-box">
@@ -209,14 +221,6 @@
                 <div class="stat-box balls-box">
                     <div class="stat-label">BALLS</div>
                     <div class="stat-value" id="modal-balls">10</div>
-                </div>
-            </div>
-
-            <!-- Ball bonus animation area -->
-            <div class="ball-bonus-area hidden" id="ball-bonus-area">
-                <div class="ball-bonus-visual">
-                    <div class="bonus-balls" id="bonus-balls-display"></div>
-                    <div class="bonus-score-popup" id="bonus-score-popup"></div>
                 </div>
             </div>
 
