@@ -95,7 +95,7 @@ class Game {
             maxChargeMs: 900,
             pegScore: 10,
             comboStep: 0.1,
-            mouthSpeed: 2.0,
+            mouthSpeed: 3.0,
             mouthWidth: 200,
             mouthBonus: 120
         };
@@ -397,11 +397,11 @@ class Game {
                             }
                         }
 
-                        // Power Ball converts pegs to green power-up pegs
+                        // Power Ball converts pegs to green (visual only - no power-up trigger)
                         if (ball.isPowerBall && ball.powerBallConversions > 0 && peg.pegType !== 'green') {
-                            // Convert the peg to green
+                            // Convert the peg to green (marked so it won't trigger power-ups)
                             peg.pegType = 'green';
-                            peg.conversionTime = performance.now();
+                            peg.isConverted = true;
                             ball.powerBallConversions--;
                             shouldHitPeg = false; // Don't remove the peg
 
@@ -761,9 +761,13 @@ class Game {
 
     /**
      * Handle green peg hit - awards a power-up
+     * (Converted pegs from Power Ball don't trigger power-ups)
      */
     _handleGreenPegHit(peg, ball) {
         if (!peg || peg.pegType !== 'green') return;
+
+        // Pegs converted by Power Ball don't trigger power-ups
+        if (peg.isConverted) return;
 
         // Award points
         this.players[this.currentPlayerIndex].score += CONFIG.PEGGLE.greenPoints;

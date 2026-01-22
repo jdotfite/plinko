@@ -325,8 +325,8 @@
             powerValue.textContent = '20';
         }
         if (mouthSpeedRange) {
-            mouthSpeedRange.value = '2.0';
-            mouthSpeedValue.textContent = '2.0';
+            mouthSpeedRange.value = '3.0';
+            mouthSpeedValue.textContent = '3.0';
         }
         if (shotsRange) {
             shotsRange.value = '10';
