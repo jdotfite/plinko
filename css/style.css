@@ -198,12 +198,17 @@ select#theme-select:focus, select#layout-select:focus { outline:2px solid rgba(0
 }
 
 .neu-star .star-path {
-    fill: #FFFFFF;
-    stroke: #FFFFFF;
+    fill: #E0E0E0;
+    stroke: #E0E0E0;
     stroke-width: 1.5;
     stroke-linejoin: round;
     stroke-linecap: round;
     paint-order: stroke fill;
+}
+
+/* Unearned star - light gray with subtle shadow */
+.neu-star {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
 .neu-star.star-left,

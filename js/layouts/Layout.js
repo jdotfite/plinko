@@ -115,4 +115,38 @@ class Layout {
             shuffled[i].pegType = 'green';
         }
     }
+
+    /**
+     * Apply level data with fixed peg positions
+     * @param {Array} pegs - Array of Peg objects
+     * @param {Object} levelData - Level definition with orangePegIndices and greenPegIndices
+     */
+    static applyLevelData(pegs, levelData) {
+        if (!pegs || !pegs.length || !levelData) return;
+
+        // Reset all to blue first
+        for (const peg of pegs) {
+            peg.pegType = 'blue';
+            peg.isHit = false;
+            peg.hitTime = 0;
+        }
+
+        // Assign orange pegs from fixed indices
+        if (levelData.orangePegIndices) {
+            for (const idx of levelData.orangePegIndices) {
+                if (idx >= 0 && idx < pegs.length) {
+                    pegs[idx].pegType = 'orange';
+                }
+            }
+        }
+
+        // Assign green pegs from fixed indices
+        if (levelData.greenPegIndices) {
+            for (const idx of levelData.greenPegIndices) {
+                if (idx >= 0 && idx < pegs.length && pegs[idx].pegType !== 'orange') {
+                    pegs[idx].pegType = 'green';
+                }
+            }
+        }
+    }
 }

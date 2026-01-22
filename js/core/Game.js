@@ -18,6 +18,11 @@ class Game {
         this.combo = 0;
         this.freeBallEarned = false;
 
+        // Level system
+        this.currentLevelIndex = 0;
+        this.currentLevelData = null;
+        this.levelCompleted = false;  // True only if all oranges cleared
+
         // Peggle-style tracking
         this.orangePegsRemaining = CONFIG.PEGGLE.orangePegCount;
         this.scorePopups = [];
@@ -47,9 +52,9 @@ class Game {
         if (!this.pegs || this.pegs.length === 0) {
             this.pegs = createPegs();
         }
-        // Assign orange pegs, then green pegs (use configurable count for testing)
-        Layout.assignOrangePegs(this.pegs, CONFIG.PEGGLE.orangePegCount);
-        Layout.assignGreenPegs(this.pegs, this.greenPegCount);
+
+        // Load level data and apply fixed peg positions
+        this._applyLevelData(this.currentLevelIndex);
 
         // Power-up state
         this.currentPowerUp = null;       // Active power-up type
@@ -281,10 +286,11 @@ class Game {
     }
 
     advanceLevel() {
-        if (!this.levels.length) return;
-        const next = (this.currentLevelIndex + 1) % this.levels.length;
+        // Use new level data system
+        const levelCount = window.getLevelCount ? window.getLevelCount() : 3;
+        const next = (this.currentLevelIndex + 1) % levelCount;
         this.currentLevelIndex = next;
-        this.applyLevel(next);
+        // Level data will be applied in resetMatch via _applyLevelData
     }
 
     gameLoop(currentTime) {
@@ -777,9 +783,15 @@ class Game {
         // Award points
         this.players[this.currentPlayerIndex].score += CONFIG.PEGGLE.greenPoints;
 
-        // Pick a random power-up from enabled list
-        if (!this.enabledPowerUps || this.enabledPowerUps.length === 0) return;
-        const powerUp = this.enabledPowerUps[Math.floor(Math.random() * this.enabledPowerUps.length)];
+        // Use level's fixed power-up if available, otherwise random
+        let powerUp;
+        if (this.currentLevelData && this.currentLevelData.powerUp) {
+            powerUp = this.currentLevelData.powerUp;
+        } else {
+            // Fallback to random from enabled list
+            if (!this.enabledPowerUps || this.enabledPowerUps.length === 0) return;
+            powerUp = this.enabledPowerUps[Math.floor(Math.random() * this.enabledPowerUps.length)];
+        }
 
         // Activate power-up immediately based on type
         this._activatePowerUp(powerUp, ball, peg);
@@ -1660,63 +1672,90 @@ class Game {
 
     _showMatchResult(orangeCleared = false) {
         const modal = document.getElementById('round-modal');
-        const ok = document.getElementById('round-modal-ok');
-        if (!modal || !ok) return;
-        const p1 = this.players[0].score;
-        const p2 = this.players[1].score;
+        const okBtn = document.getElementById('round-modal-ok');
+        const retryBtn = document.getElementById('round-modal-retry');
+        if (!modal || !okBtn) return;
+
+        const score = this.players[0].score;
+        this.levelCompleted = orangeCleared;
 
         // Track persistent stats for trail unlocks
         if (this.persistentStats) {
             this.persistentStats.gamesPlayed += 1;
-            this.persistentStats.totalScore += Math.max(p1, p2);
-            // Count a win if player cleared orange or has higher score
-            if (orangeCleared || p1 !== p2) {
+            this.persistentStats.totalScore += score;
+            if (orangeCleared) {
                 this.persistentStats.wins += 1;
             }
             this._savePersistentStats();
             this._checkTrailUnlocks();
         }
 
+        // Get star rating based on score
+        const stars = this.getStarRating(score);
+
         // Determine result message
         let title;
         if (orangeCleared) {
-            title = 'FEVER COMPLETE!';
+            title = 'Level Complete!';
         } else {
-            if (p1 > p2) title = 'Player 1 Wins!';
-            else if (p2 > p1) title = 'Player 2 Wins!';
-            else title = 'Tie Game!';
+            title = 'Level Failed!';
         }
 
-        // Update modal with results
-        const nextLevel = ((this.currentLevelIndex + 1) % this.levels.length) + 1;
-        if (typeof window.updateModalContent === 'function') {
-            window.updateModalContent(nextLevel, title, true);
-        }
+        // Update modal level display
+        const levelName = this.currentLevelData ? this.currentLevelData.name : `Level ${this.currentLevelIndex + 1}`;
+        const levelEl = document.getElementById('modal-level');
+        if (levelEl) levelEl.textContent = levelName;
 
-        // Update objectives to show scores
+        // Update title
+        const titleEl = document.getElementById('round-modal-text');
+        if (titleEl) titleEl.textContent = title;
+
+        // Update score display
+        const scoreEl = document.getElementById('modal-score');
+        if (scoreEl) scoreEl.textContent = score.toLocaleString();
+
+        // Update targets remaining
+        const targetsEl = document.getElementById('modal-targets');
+        if (targetsEl) targetsEl.textContent = this.orangePegsRemaining;
+
+        // Update balls display (show remaining)
         const ballsEl = document.getElementById('modal-balls');
         if (ballsEl) {
-            ballsEl.textContent = `Score: ${Math.max(p1, p2).toLocaleString()}`;
+            const remaining = this.shotsPerPlayer - this.shotsTaken[0];
+            ballsEl.textContent = remaining;
         }
 
-        // Update first objective to show result
-        const objectives = document.querySelectorAll('.objective-text');
-        if (objectives[0]) {
-            objectives[0].textContent = orangeCleared ? 'All targets cleared!' : 'Out of balls';
+        // Update stars - earned stars are gold, unearned are gray
+        const starEls = modal.querySelectorAll('.neu-star');
+        starEls.forEach((star, idx) => {
+            if (idx < stars && orangeCleared) {
+                star.classList.add('earned');
+            } else {
+                star.classList.remove('earned');
+            }
+        });
+
+        // Show/hide buttons based on result
+        if (orangeCleared) {
+            okBtn.querySelector('span').textContent = 'NEXT LEVEL';
+            if (retryBtn) retryBtn.classList.add('hidden');
+        } else {
+            okBtn.querySelector('span').textContent = 'RETRY';
+            if (retryBtn) retryBtn.classList.add('hidden');
         }
 
         modal.classList.remove('hidden');
-        ok.onclick = () => {
+
+        okBtn.onclick = () => {
             modal.classList.add('hidden');
-            this.advanceLevel();
-            this.resetMatch();
-            // Update modal back to play mode for next round
-            if (typeof window.updateModalContent === 'function') {
-                window.updateModalContent(this.currentLevelIndex + 1, 'Ready to Play!', false);
+
+            if (orangeCleared) {
+                // Advance to next level
+                this.advanceLevel();
             }
-            // Reset objectives text
-            if (objectives[0]) objectives[0].textContent = 'Clear all orange pegs';
-            if (ballsEl) ballsEl.textContent = `${this.shotsPerPlayer} balls to use`;
+            // Reset and restart (same level if failed, next if completed)
+            this.resetMatch();
+
             // Start magazine loading animation after modal is dismissed
             this.startMagazineAnimation();
         };
@@ -1743,14 +1782,12 @@ class Game {
             this.feverSlots.deactivate();
         }
 
-        // Rebuild pegs and assign new orange pegs
+        // Rebuild pegs and apply level data
         this.pegs = this.layout.buildPegs(this.board);
         if (!this.pegs || this.pegs.length === 0) {
             this.pegs = createPegs();
         }
-        Layout.assignOrangePegs(this.pegs, CONFIG.PEGGLE.orangePegCount);
-        Layout.assignGreenPegs(this.pegs, this.greenPegCount);
-        this.orangePegsRemaining = CONFIG.PEGGLE.orangePegCount;
+        this._applyLevelData(this.currentLevelIndex);
 
         // Reset power-up state
         this.currentPowerUp = null;
@@ -1990,6 +2027,61 @@ class Game {
         try {
             localStorage.setItem('plinko_persistent_stats', JSON.stringify(this.persistentStats));
         } catch (e) {}
+    }
+
+    /**
+     * Apply level data - sets fixed peg positions and level settings
+     */
+    _applyLevelData(levelIndex) {
+        // Get level data (falls back to level_1 if not found)
+        const levelData = window.getLevelData ? window.getLevelData(levelIndex) : null;
+
+        if (levelData) {
+            this.currentLevelData = levelData;
+            this.currentLevelIndex = levelIndex;
+
+            // Apply fixed peg positions from level data
+            Layout.applyLevelData(this.pegs, levelData);
+
+            // Count orange pegs
+            this.orangePegsRemaining = levelData.orangePegIndices ? levelData.orangePegIndices.length : CONFIG.PEGGLE.orangePegCount;
+
+            // Apply level settings
+            if (levelData.mouthSpeed && this.goalMouth) {
+                this.goalMouth.setSpeed(levelData.mouthSpeed);
+            }
+            if (levelData.ballCount) {
+                this.shotsPerPlayer = levelData.ballCount;
+            }
+        } else {
+            // Fallback to random assignment if no level data
+            this.currentLevelData = null;
+            Layout.assignOrangePegs(this.pegs, CONFIG.PEGGLE.orangePegCount);
+            Layout.assignGreenPegs(this.pegs, this.greenPegCount);
+            this.orangePegsRemaining = CONFIG.PEGGLE.orangePegCount;
+        }
+
+        this.levelCompleted = false;
+    }
+
+    /**
+     * Get the star rating for the current score
+     * Returns 0, 1, 2, or 3 based on thresholds
+     */
+    getStarRating(score) {
+        if (!this.currentLevelData || !this.currentLevelData.starThresholds) {
+            // Default thresholds
+            if (score >= 6000) return 3;
+            if (score >= 5000) return 2;
+            if (score >= 4000) return 1;
+            return 0;
+        }
+
+        const thresholds = this.currentLevelData.starThresholds;
+        if (score >= thresholds[2]) return 3;
+        if (score >= thresholds[1]) return 2;
+        if (score >= thresholds[0]) return 1;
+        return 0;
     }
 
     _resetShotStats() {
