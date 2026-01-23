@@ -43,6 +43,10 @@ class LevelEditor {
             star3: 25000
         };
 
+        // Physics settings (per level)
+        this.gravity = CONFIG.PHYSICS.gravity;  // Default 0.45
+        this.bucketSpeed = 0.85;  // Default bucket speed
+
         // Saved levels in localStorage
         this.savedLevels = this._loadSavedLevels();
         this.currentLevelId = null;
@@ -290,11 +294,18 @@ class LevelEditor {
             this.levelName = name;
         }
 
+        // Read current values from inputs
+        this._readPhysicsInputs();
+
         const levelData = {
             id: this.currentLevelId || this._generateId(),
             name: this.levelName,
-            pegs: this.pegs.map(p => ({ x: p.x, y: p.y, type: p.type })),
+            pegs: this.pegs.map(p => ({ x: p.x, y: p.y, type: p.type, powerUp: p.powerUp || null })),
             starThresholds: { ...this.starThresholds },
+            physics: {
+                gravity: this.gravity,
+                bucketSpeed: this.bucketSpeed
+            },
             metadata: this._calculateMetadata(),
             updatedAt: new Date().toISOString()
         };
@@ -331,12 +342,22 @@ class LevelEditor {
 
         this.currentLevelId = level.id;
         this.levelName = level.name;
-        this.pegs = level.pegs.map(p => ({ x: p.x, y: p.y, type: p.type }));
+        this.pegs = level.pegs.map(p => ({ x: p.x, y: p.y, type: p.type, powerUp: p.powerUp || null }));
         this.starThresholds = { ...level.starThresholds };
+
+        // Load physics settings (with defaults for older levels)
+        if (level.physics) {
+            this.gravity = level.physics.gravity ?? CONFIG.PHYSICS.gravity;
+            this.bucketSpeed = level.physics.bucketSpeed ?? 0.85;
+        } else {
+            this.gravity = CONFIG.PHYSICS.gravity;
+            this.bucketSpeed = 0.85;
+        }
 
         this._updateLevelNameInput();
         this._updatePegCounts();
         this._updateStarInputs();
+        this._updatePhysicsInputs();
 
         console.log(`Level loaded: ${this.levelName}`);
         return true;
@@ -350,10 +371,13 @@ class LevelEditor {
         this.levelName = 'Untitled Level';
         this.pegs = [];
         this.starThresholds = { star1: 20000, star2: 22500, star3: 25000 };
+        this.gravity = CONFIG.PHYSICS.gravity;
+        this.bucketSpeed = 0.85;
 
         this._updateLevelNameInput();
         this._updatePegCounts();
         this._updateStarInputs();
+        this._updatePhysicsInputs();
     }
 
     /**
@@ -377,11 +401,17 @@ class LevelEditor {
      * Export level as JSON
      */
     exportLevel() {
+        this._readPhysicsInputs();
+
         const levelData = {
             name: this.levelName,
             version: 1,
             pegs: this.pegs,
             starThresholds: this.starThresholds,
+            physics: {
+                gravity: this.gravity,
+                bucketSpeed: this.bucketSpeed
+            },
             metadata: this._calculateMetadata()
         };
 
@@ -410,9 +440,19 @@ class LevelEditor {
                 this.pegs = data.pegs || [];
                 this.starThresholds = data.starThresholds || { star1: 20000, star2: 22500, star3: 25000 };
 
+                // Load physics settings (with defaults for older files)
+                if (data.physics) {
+                    this.gravity = data.physics.gravity ?? CONFIG.PHYSICS.gravity;
+                    this.bucketSpeed = data.physics.bucketSpeed ?? 0.85;
+                } else {
+                    this.gravity = CONFIG.PHYSICS.gravity;
+                    this.bucketSpeed = 0.85;
+                }
+
                 this._updateLevelNameInput();
                 this._updatePegCounts();
                 this._updateStarInputs();
+                this._updatePhysicsInputs();
 
                 console.log(`Level imported: ${this.levelName}`);
             } catch (err) {
@@ -436,6 +476,8 @@ class LevelEditor {
 
         // Save current editor state
         this.originalPegs = this.pegs.map(p => ({ ...p }));
+        this.originalGravity = this.game.tuning.gravity;
+        this.originalBucketSpeed = this.game.goalMouth ? this.game.goalMouth.speed : 0.85;
 
         // Hide editor UI, show test UI
         document.getElementById('editor-panel')?.classList.add('hidden');
@@ -456,6 +498,9 @@ class LevelEditor {
     _initializeTestRound() {
         const game = this.game;
 
+        // Read physics from inputs
+        this._readPhysicsInputs();
+
         // Reset game state
         game.players = [{ score: 0 }, { score: 0 }];
         game.currentPlayerIndex = 0;
@@ -472,6 +517,12 @@ class LevelEditor {
         game.extremeFeverTarget = null;
         game.timeScale = 1;
         game.blackHoles = [];
+
+        // Apply physics settings
+        game.tuning.gravity = this.gravity;
+        if (game.goalMouth) {
+            game.goalMouth.setSpeed(this.bucketSpeed);
+        }
 
         // Deactivate fever slots
         if (game.feverSlots) {
@@ -528,6 +579,12 @@ class LevelEditor {
         // Restore editor pegs
         this.pegs = this.originalPegs;
         this.originalPegs = null;
+
+        // Restore original physics
+        this.game.tuning.gravity = this.originalGravity;
+        if (this.game.goalMouth) {
+            this.game.goalMouth.setSpeed(this.originalBucketSpeed);
+        }
 
         // Show editor UI, hide test UI
         document.getElementById('editor-panel')?.classList.remove('hidden');
@@ -841,6 +898,7 @@ class LevelEditor {
             this._updatePegCounts();
             this._updateLevelNameInput();
             this._updateStarInputs();
+            this._updatePhysicsInputs();
         }
     }
 
@@ -907,6 +965,26 @@ class LevelEditor {
         if (star1) star1.value = this.starThresholds.star1;
         if (star2) star2.value = this.starThresholds.star2;
         if (star3) star3.value = this.starThresholds.star3;
+    }
+
+    _updatePhysicsInputs() {
+        const gravityInput = document.getElementById('editor-gravity');
+        const bucketInput = document.getElementById('editor-bucket-speed');
+
+        if (gravityInput) gravityInput.value = this.gravity;
+        if (bucketInput) bucketInput.value = this.bucketSpeed;
+    }
+
+    _readPhysicsInputs() {
+        const gravityInput = document.getElementById('editor-gravity');
+        const bucketInput = document.getElementById('editor-bucket-speed');
+
+        if (gravityInput) {
+            this.gravity = parseFloat(gravityInput.value) || CONFIG.PHYSICS.gravity;
+        }
+        if (bucketInput) {
+            this.bucketSpeed = parseFloat(bucketInput.value) || 0.85;
+        }
     }
 
     // =============================================

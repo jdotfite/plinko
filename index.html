@@ -456,6 +456,16 @@
                         <input type="number" id="editor-star3" value="25000" step="500">
                     </div>
                 </div>
+                <div class="editor-field-row">
+                    <div class="editor-field small">
+                        <label for="editor-gravity">Gravity</label>
+                        <input type="number" id="editor-gravity" value="0.45" step="0.05" min="0.1" max="1.5">
+                    </div>
+                    <div class="editor-field small">
+                        <label for="editor-bucket-speed">Bucket</label>
+                        <input type="number" id="editor-bucket-speed" value="0.85" step="0.05" min="0" max="3">
+                    </div>
+                </div>
             </div>
 
             <!-- Actions -->
@@ -536,8 +546,8 @@
 
     <!-- Editor Test Mode Bar -->
     <div id="editor-test-bar" class="hidden">
-        <span>TEST MODE - Unlimited balls</span>
-        <button id="editor-stop-test" class="editor-btn">Exit Test (Esc)</button>
+        <span>TEST</span>
+        <button id="editor-stop-test" class="editor-btn">Exit</button>
     </div>
 
     <!-- Load scripts in order -->
